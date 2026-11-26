@@ -105,6 +105,9 @@ internal sealed class TestPeer
 
     public void WriteRaw(string line) => _toConnection.Write(Encoding.UTF8.GetBytes(line));
 
+    /// <summary>Makes each later write of the connection fail, as a write to a child that exited does.</summary>
+    public void CloseReceiving() => _fromConnection.CompleteWriting();
+
     /// <summary>Ends the stream that the connection reads.</summary>
     public void Close() => _toConnection.CompleteWriting();
 
