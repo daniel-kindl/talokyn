@@ -22,5 +22,5 @@ None approved. Record any future exception with the DKSTACK rule, the project ru
 - Evidence: reference-model tests and benchmarks in the audit package are **not** proof of a working .NET implementation.
 - Keep any privileged process control and real-provider adapters behind explicit acceptance gates. Do not claim security guarantees that OS isolation cannot enforce.
 - Repository workflow: one issue, one branch, one PR; independent review before merge; no agent self-merges.
-- Reference DKSTACK via its released `v1` branch, not `main`. Copied check scripts are pinned to release tag `v1.7.0` and must remain unchanged.
+- Reference DKSTACK via its released `v1` branch, not `main`. Copied check format checks are pinned to `v1.6.0`; consumer and PR helpers originate from `v1.7.0` and must remain unchanged.
 

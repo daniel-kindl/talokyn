@@ -13,7 +13,7 @@ dotnet restore Talokyn.slnx
 dotnet build Talokyn.slnx --no-restore -warnaserror
 dotnet format Talokyn.slnx --verify-no-changes --no-restore
 dotnet run --project tests/Talokyn.SmokeTests/Talokyn.SmokeTests.csproj --no-restore
-node scripts/check-consumer.mjs
+node scripts/check-consumer.mjs --tag v1.6.0
 node scripts/check-maps.mjs
 node scripts/check-context.mjs
 node scripts/check-dashes.mjs
@@ -21,6 +21,6 @@ node scripts/check-writing.mjs
 node scripts/check-links.mjs
 ```
 
-On pull requests, run `node scripts/check-adrs.mjs --base <base-ref>` and validate the PR title/body with the pinned scripts. The scripts originate unchanged from DKSTACK v1.7.0.
+On pull requests, run `node scripts/check-adrs.mjs --base <base-ref>` and validate the PR title/body with the pinned scripts. The scripts originate unchanged from DKSTACK v1.6.0 (format checks) and v1.7.0 (consumer and PR helpers).
 
 Until production code exists, no real-provider tests or security claims can be verified. Report each skipped check as **NOT RUN**. This project follows [SemVer](https://raw.githubusercontent.com/daniel-kindl/dkstack/v1/versioning/index.md); versions start at 0.1.0 and no release is authorized by this bootstrap.

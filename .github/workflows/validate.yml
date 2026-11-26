@@ -1,0 +1,81 @@
+name: validate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+        with:
+          global-json-file: global.json
+      - name: Restore
+        run: dotnet restore Talokyn.slnx
+      - name: Build
+        run: dotnet build Talokyn.slnx --no-restore -warnaserror
+      - name: Verify format
+        run: dotnet format Talokyn.slnx --verify-no-changes --no-restore
+      - name: Smoke tests
+        run: dotnet run --project tests/Talokyn.SmokeTests/Talokyn.SmokeTests.csproj --no-restore
+
+  docs:
+    name: docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      # DKSTACK validation scripts: released v1.6.0 with offline consumer/PR helper from v1.7.0.
+      - name: Validate DKSTACK consumer
+        run: node scripts/check-consumer.mjs --tag v1.6.0
+      - name: Validate relative links
+        run: node scripts/check-links.mjs
+      - name: Validate ASCII dashes
+        run: node scripts/check-dashes.mjs
+      - name: Validate writing
+        run: node scripts/check-writing.mjs
+      - name: Validate maps
+        run: node scripts/check-maps.mjs
+      - name: Validate context
+        run: node scripts/check-context.mjs
+      - name: Validate ADRs
+        run: node scripts/check-adrs.mjs --base "$BASE_SHA"
+      - name: Validate PR title
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-title.mjs --event
+      - name: Validate PR body
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-pr-body.mjs --event
+
