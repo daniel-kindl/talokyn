@@ -9,5 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Talokyn.FakeProvider/Talokyn.FakeProvider.csproj" />
+    <ProjectReference Include="../../src/Talokyn.Providers.JsonRpc/Talokyn.Providers.JsonRpc.csproj" />
   </ItemGroup>
 </Project>

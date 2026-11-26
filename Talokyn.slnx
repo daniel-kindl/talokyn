@@ -2,6 +2,7 @@
   <Project Path="src/Talokyn.Core/Talokyn.Core.csproj" />
   <Project Path="src/Talokyn.Cli/Talokyn.Cli.csproj" />
   <Project Path="src/Talokyn.Daemon/Talokyn.Daemon.csproj" />
+  <Project Path="src/Talokyn.Providers.JsonRpc/Talokyn.Providers.JsonRpc.csproj" />
   <Project Path="tests/Talokyn.SmokeTests/Talokyn.SmokeTests.csproj" />
   <Project Path="tests/Talokyn.FakeProvider/Talokyn.FakeProvider.csproj" />
   <Project Path="tests/Talokyn.ContractTests/Talokyn.ContractTests.csproj" />
