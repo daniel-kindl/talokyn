@@ -58,7 +58,7 @@ The wordmark uses Inter SemiBold and deliberate tracking. All letters are upperc
 
 For product prose, write **Talokyn**, not TALOKYN. Use normal title casing outside the logo.
 
-SVG lockups use a live text element with fallback fonts. For consistent print output, convert final approved text to paths.
+The approved SVG candidates use Inter SemiBold outlines. They render without the font installed. UI typography still follows the font guidance.
 
 Do not bundle, upload or redistribute the source font files.
 

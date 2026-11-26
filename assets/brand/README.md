@@ -20,7 +20,7 @@ All committed brand artwork is editable SVG. No font binaries are included.
 - [Horizontal on light](logo/lockup-horizontal-on-light.svg)
 - [Stacked on dark](logo/lockup-stacked-on-dark.svg)
 
-Wordmark elements use Inter and system fallbacks. Convert to outlined text for final print exports.
+Wordmark shapes are vector outlines derived from Inter SemiBold. UI text uses the documented fonts and fallbacks.
 
 ## Banners
 
