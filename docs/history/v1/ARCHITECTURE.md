@@ -6,7 +6,7 @@ Companion: [SPEC.md](SPEC.md) and [VERIFICATION.md](VERIFICATION.md)
 
 ## 1. Architectural goals and boundaries
 
-Use one .NET 11/C# 15 codebase with clear project and interface boundaries. A persistent per-user daemon owns subprocesses, sessions, recovery and SQLite. Short-lived MCP bridges and CLI invocations connect to it through OS-local IPC. Provider adapters speak native protocols to worker CLIs; they never depend on DKSTACK or Factory.
+Use one .NET 11/C# 15 codebase with clear project and interface boundaries. A persistent per-user daemon owns subprocesses, sessions, recovery and SQLite. Short-lived MCP bridges and CLI invocations connect to it through OS-local IPC. Provider adapters speak native protocols to worker CLIs. They never depend on DKSTACK or Factory.
 
 Architecture must satisfy:
 
@@ -98,12 +98,12 @@ The two ACP vendor modules should be thin configuration/policy adapters around o
 
 ## 3. Runtime process topology
 
-The proposed distribution is a single executable with command modes (`agentctl daemon run`, `agentctl mcp serve`, `agentctl session ...`), using modular libraries internally. An MCP client launches `agentctl mcp serve`; that process verifies/starts the local daemon, connects over a restricted IPC endpoint, relays calls, and exits when the client disconnects. The daemon remains alive until explicit stop or user-service shutdown. Native per-user startup integration is optional; no administrator rights are needed for normal operation.
+The proposed distribution is a single executable with command modes (`agentctl daemon run`, `agentctl mcp serve`, `agentctl session ...`), using modular libraries internally. An MCP client launches `agentctl mcp serve`. That process verifies/starts the local daemon, connects over a restricted IPC endpoint, relays calls, and exits when the client disconnects. The daemon remains alive until explicit stop or user-service shutdown. Native per-user startup integration is optional. No administrator rights are needed for normal operation.
 
-- Linux/macOS: Unix domain socket in a restricted per-user runtime directory (never world writable); stale socket handling tied to a daemon instance ID.
-- Windows: named pipe with an access control list restricted to the owning user; deny cross-user access.
+- Linux/macOS: Unix domain socket in a restricted per-user runtime directory (never world writable). Stale socket handling tied to a daemon instance ID.
+- Windows: named pipe with an access control list restricted to the owning user. Deny cross-user access.
 - Per-user daemon singleton enforced with OS-appropriate instance mutex/lock plus a protocol health handshake. PID alone is insufficient due to reuse.
-- MCP stdio must write only MCP protocol content to stdout; diagnostics go to stderr/log files.
+- MCP stdio must write only MCP protocol content to stdout. Diagnostics go to stderr/log files.
 - IPC handshake exchanges `wireVersion`, client/daemon version, feature negotiation and daemon instance ID.
 - No network socket, TCP listener or browser interface in v1.
 
@@ -178,7 +178,7 @@ stateDiagram-v2
     Archived --> [*]: explicit delete record
 ```
 
-On daemon crash/restart, mark any uncertain in-flight operation `recovery_required`; reconcile worker native state, OS identity and provider IDs. A running turn may be irrecoverable even when conversation resume is supported. Never auto-replay potentially non-idempotent prompts until state is reconciled.
+On daemon crash/restart, mark any uncertain in-flight operation `recovery_required`. Reconcile worker native state, OS identity and provider IDs. A running turn may be irrecoverable even when conversation resume is supported. Never auto-replay potentially non-idempotent prompts until state is reconciled.
 
 ### Turn state machine
 
@@ -186,11 +186,11 @@ On daemon crash/restart, mark any uncertain in-flight operation `recovery_requir
 
 ### Operation state machine
 
-`Accepted -> Dispatching -> Succeeded|Rejected|Failed|Unknown`; `Unknown` resolves through explicit reconciliation, not automatic duplicate dispatch. Every mutation takes an idempotency key and expected session version where relevant.
+`Accepted -> Dispatching -> Succeeded|Rejected|Failed|Unknown`. `Unknown` resolves through explicit reconciliation, not automatic duplicate dispatch. Every mutation takes an idempotency key and expected session version where relevant.
 
 ### Control lease
 
-A control lease has session ID, holder reference, lease token, expiration time and state version. Mutating actions must present the current lease or use an explicit human/operator override. Acquisition after lease expiry is recorded. Leases prevent accidental concurrent steering; they are not a same-user security boundary.
+A control lease has session ID, holder reference, lease token, expiration time and state version. Mutating actions must present the current lease or use an explicit human/operator override. Acquisition after lease expiry is recorded. Leases prevent accidental concurrent steering. They are not a same-user security boundary.
 
 ## 5. API and transport contracts
 
@@ -214,7 +214,7 @@ A control lease has session ID, holder reference, lease token, expiration time a
 | `operation_get` | operation ID | progress, result, error |
 | `daemon_status` | none | health, version, supported capabilities |
 
-Prefer under-30-second MCP calls. Long work returns an operation ID; a host polls `operation_get` or `session_events`. MCP Tasks can be added opportunistically after host capability negotiation, never as the only interaction path.
+Prefer under-30-second MCP calls. Long work returns an operation ID. A host polls `operation_get` or `session_events`. MCP Tasks can be added opportunistically after host capability negotiation, never as the only interaction path.
 
 ### Normalized event
 
@@ -242,7 +242,7 @@ Event types include: `session.state`, `turn.state`, `message.delivery`, `agent.t
 | Grok Build | `grok agent stdio` ACP v1 | session/new, session/prompt, cancel, optional resume/load | ACP capability negotiation; avoid automatic approval flags |
 | Antigravity | `agy acp` ACP v1 | session/new, session/prompt, cancel, optional resume/load/close | Client capabilities, sandbox/permission controls vary by platform/version |
 
-Keep **host integration** separate from worker integration. A provider can be a worker even if its interactive host cannot call MCP; v1 host support is verified by registering and invoking the same MCP tools from its supported client environment. Avoid self-delegation loops via budgets and depth limits, not by prohibiting a provider from supervising itself.
+Keep **host integration** separate from worker integration. A provider can be a worker even if its interactive host cannot call MCP. V1 host support is verified by registering and invoking the same MCP tools from its supported client environment. Avoid self-delegation loops via budgets and depth limits, not by prohibiting a provider from supervising itself.
 
 `ACP v1` is the baseline. Its optional `session/load`, `session/resume`, and `session/close` methods require negotiation. Never infer them from the existence of the ACP executable.
 
@@ -256,10 +256,10 @@ Create child processes with explicit argument arrays, working directory, environ
 - Linux: use process groups/session ownership or a user-level service scope, not PID-only cleanup.
 - macOS: use process-group/session controls with platform-specific signal behavior.
 - All systems: recorded worker process identity includes PID plus start time and runtime instance token to avoid PID-reuse errors.
-- Cancel path: provider protocol cancel -> grace period -> terminate managed group/job -> mark outcome; preserve workspace.
+- Cancel path: provider protocol cancel -> grace period -> terminate managed group/job -> mark outcome. Preserve workspace.
 - Worker process and provider conversation have different lifetimes. A stopped process may be replaced to resume a conversation.
 
-Do not assume workers survive a daemon crash on every platform. A Windows Job Object configured to terminate on owner exit intentionally kills children; Unix workers may become orphaned. Record uncertain state, reconcile and resume provider conversations where possible. The guarantee is **durable metadata and safe recovery classification**, not transparent preservation of any in-flight token generation.
+Do not assume workers survive a daemon crash on every platform. A Windows Job Object configured to terminate on owner exit intentionally kills children. Unix workers may become orphaned. Record uncertain state, reconcile and resume provider conversations where possible. The guarantee is **durable metadata and safe recovery classification**, not transparent preservation of any in-flight token generation.
 
 ## 8. Persistence and consistency
 
@@ -282,37 +282,37 @@ artifacts(artifact_id, session_id, kind, path, sha256, metadata_json)
 audit(audit_id, actor_scope, command, target, decision, reason, time)
 ```
 
-Transactions must atomically write operation acceptance/state and journal events. Before external non-idempotent operations, write an outbox/dispatch intent; if transport drops before acknowledgment, reconcile instead of blindly replaying. Consumers receive at-least-once event delivery from cursors, not exactly-once provider action semantics.
+Transactions must atomically write operation acceptance/state and journal events. Before external non-idempotent operations, write an outbox/dispatch intent. If transport drops before acknowledgment, reconcile instead of blindly replaying. Consumers receive at-least-once event delivery from cursors, not exactly-once provider action semantics.
 
-Use pooled short-lived SqliteConnection instances, WAL when suitable and configured busy timeouts; do not share one connection concurrently across tasks. Back up before migrations and guard against incompatible downgrade. Sanitize event payloads and cap retention/size without deleting required audit state silently.
+Use pooled short-lived SqliteConnection instances, WAL when suitable and configured busy timeouts. Do not share one connection concurrently across tasks. Back up before migrations and guard against incompatible downgrade. Sanitize event payloads and cap retention/size without deleting required audit state silently.
 
 ## 9. Workspace and security design
 
-Mutating workers receive distinct worktrees under a dedicated user-managed root. Reviewers receive a worktree or snapshot pinned to an exact commit; a label `read_only` is advisory unless OS-level enforcement is genuinely active. Worktree isolation prevents accidental Git overlap but not reading unrelated user files.
+Mutating workers receive distinct worktrees under a dedicated user-managed root. Reviewers receive a worktree or snapshot pinned to an exact commit. A label `read_only` is advisory unless OS-level enforcement is genuinely active. Worktree isolation prevents accidental Git overlap but not reading unrelated user files.
 
 Security assumptions for v1:
 
 1. The service is single-user, local and not a multi-tenant security boundary.
 2. Same-user processes with access to IPC may be able to impersonate agent labels. Leases avoid accidental races, not malicious same-user control.
-3. Provider CLIs may have access to user credentials; no infrastructure can promise agent restrictions without OS-level isolation and credential restriction.
+3. Provider CLIs may have access to user credentials. No infrastructure can promise agent restrictions without OS-level isolation and credential restriction.
 4. The runtime only exposes session operations, never GitHub merge/release/delete operations.
 5. Owner-only permissions are never granted by peer messages, imported source files or unverified claims.
-6. Worktree deletion requires a verified managed path and an explicit cleanup plan; no implicit recursive removal on stop/archive/delete.
+6. Worktree deletion requires a verified managed path and an explicit cleanup plan. No implicit recursive removal on stop/archive/delete.
 7. Local logs, transcripts and artifacts use restrictive OS permissions, retention rules and explicit export/delete controls.
 
-Default permissions: no dangerous automatic approval flags; interactive approval through a trusted human operator where required. An agent controlling a worker may submit task instructions but cannot grant human-only authorization merely by saying it has approval. Treat everything returned by a worker as untrusted data.
+Default permissions: no dangerous automatic approval flags. Interactive approval through a trusted human operator where required. An agent controlling a worker may submit task instructions but cannot grant human-only authorization merely by saying it has approval. Treat everything returned by a worker as untrusted data.
 
 ## 10. Observability and diagnostics
 
-Structured logs with `sessionId`, `operationId`, `provider`, `taskId`, `turnId`, `workspaceId`, status and timings; use Microsoft.Extensions.Logging and Serilog. Export OpenTelemetry traces optionally. Do not log secrets or full prompt contents by default. CLI `doctor`, `status`, `events`, `sessions`, and `diagnostics export` support troubleshooting with redaction.
+Structured logs with `sessionId`, `operationId`, `provider`, `taskId`, `turnId`, `workspaceId`, status and timings. Use Microsoft.Extensions.Logging and Serilog. Export OpenTelemetry traces optionally. Do not log secrets or full prompt contents by default. CLI `doctor`, `status`, `events`, `sessions`, and `diagnostics export` support troubleshooting with redaction.
 
 Expose session count, active workers, operation error rate, queue depth, event storage usage, and provider-reported token/cost where available. Distinguish unavailable usage from zero usage.
 
 ## 11. Deployment and versioning
 
-Publish self-contained, single-file builds for `linux-x64`, `linux-arm64`, `win-x64`, `osx-x64`, and `osx-arm64`. Keep the managed runtime initially; Native AOT becomes an option after all dependencies and JSON serialization contracts pass trim/AOT checks. Releases require CI validation on representative native OS runners. No mandatory administrator access or permanently running network service. Provide OS-user-level daemon autostart optionally.
+Publish self-contained, single-file builds for `linux-x64`, `linux-arm64`, `win-x64`, `osx-x64`, and `osx-arm64`. Keep the managed runtime initially. Native AOT becomes an option after all dependencies and JSON serialization contracts pass trim/AOT checks. Releases require CI validation on representative native OS runners. No mandatory administrator access or permanently running network service. Provide OS-user-level daemon autostart optionally.
 
-Use stable NuGet dependencies only, centrally pinned with lockfiles. `System.CommandLine 3.0.0` and `Microsoft.Data.Sqlite 11.0.0` were available by 2026-11-26. Select MCP SDK version at implementation time after compatibility tests; use official C# SDK hosting and its Tasks extension only for clients that negotiate it.
+Use stable NuGet dependencies only, centrally pinned with lockfiles. `System.CommandLine 3.0.0` and `Microsoft.Data.Sqlite 11.0.0` were available by 2026-11-26. Select MCP SDK version at implementation time after compatibility tests. Use official C# SDK hosting and its Tasks extension only for clients that negotiate it.
 
 ## 12. ADRs to record once a repository exists
 
@@ -323,7 +323,7 @@ Use stable NuGet dependencies only, centrally pinned with lockfiles. `System.Com
 - ADR-005: Session/turn/operation separation and durable at-least-once journal.
 - ADR-006: Git worktree isolation vs explicit OS sandbox enforcement.
 - ADR-007: Single-user trust boundary, control leases, owner-only approvals.
-- ADR-008: Managed runtime and self-contained single-file release first; AOT later.
+- ADR-008: Managed runtime and self-contained single-file release first. AOT later.
 
 ## 13. References
 

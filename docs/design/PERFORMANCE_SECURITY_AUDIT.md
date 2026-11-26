@@ -7,13 +7,13 @@ Deliverable: amended design requirements FR-077..FR-099, implementation constrai
 
 ## Verdict and evidence levels
 
-**Design verdict: NOT READY TO SHIP.** It is now more prescriptive, but needs a real .NET implementation, OS integration, provider tests, native performance measurements and security checks. The inherited red-team limitations still apply.
+**Design verdict: NOT READY TO SHIP.** It is now more prescriptive. It still needs a real .NET implementation, OS integration, provider tests, native performance measurements and security checks. The inherited red-team limitations still apply.
 
 Evidence legend:
 
 - **Measured (Python/SQLite/Git)**: tests genuinely executed in a Linux ephemeral container. They prove only those tools/fixtures, **not** .NET runtime performance or security.
-- **Confirmed upstream**: provider/runtime documentation explains behavior; not independently reproduced in .NET here.
-- **Design risk**: plausible exploitable failure if an implementation violates the revised requirement; not an observed exploit in nonexistent production code.
+- **Confirmed upstream**: provider/runtime documentation explains behavior. Not independently reproduced in .NET here.
+- **Design risk**: plausible exploitable failure if an implementation violates the revised requirement. Not an observed exploit in nonexistent production code.
 - **Residual**: not solvable merely by changing the runtime contract.
 
 ### Finding summary and fixes
@@ -66,33 +66,33 @@ Run: `python benchmarks/benchmark_reference.py`. Environment and precise timings
 ## Corrected operational model
 
 1. Validate endpoint, request framing, declared size, JSON depth/duplicates, capabilities and workspace identity before expensive work.
-2. Admit work only through an item- and byte-bounded queue; reserve limits and persist critical intent under SQLite WAL FULL before responding or dispatching.
-3. Dispatch via a fair session scheduler; forbid unbounded per-session channels, caller-controlled shell args and ambient secret inheritance.
-4. Independently read stdout and stderr, enforce frame/stream bytes, stream mandatory events to a bounded DB writer, and handle backpressure with explicit stop/pause and gap status.
+2. Admit work only through an item- and byte-bounded queue. Reserve limits and persist critical intent under SQLite WAL FULL before responding or dispatching.
+3. Dispatch via a fair session scheduler. Forbid unbounded per-session channels, caller-controlled shell args and ambient secret inheritance.
+4. Independently read stdout and stderr and enforce frame/stream bytes. Stream mandatory events to a bounded DB writer. Handle backpressure with explicit stop/pause and gap status.
 5. Process stop/cancel through a separate supervisor lane even when normal event queues or provider calls are stuck.
-6. Poll events with bounded indexed cursor queries, without holding SQLite readers open across network/IPC waits; monitor WAL size/checkpoint/busy.
-7. Treat all native effects as potentially uncertain after transport loss; preserve previous red-team fencing/reconciliation rules.
-8. Persist only permitted audit data, restrict raw transcripts, require opt-in external diagnostics/telemetry, and never infer human approval or security isolation from a caller label.
+6. Poll events with bounded indexed cursor queries, without holding SQLite readers open across network/IPC waits. Monitor WAL size/checkpoint/busy.
+7. Treat all native effects as potentially uncertain after transport loss. Preserve previous red-team fencing/reconciliation rules.
+8. Persist only permitted audit data, restrict raw transcripts and require opt-in external diagnostics/telemetry. Never infer human approval or security isolation from a caller label.
 
 ## Security boundary that remains impossible to guarantee in v1
 
-- **Malicious agents running as the same OS user** can access the socket, databases, other user-owned files and credentials if those paths are readable; per-agent labels, MCP, leases or self-declared roles are not trustworthy authentication.
+- **Malicious agents running as the same OS user** can access the socket, databases, other user-owned files and credentials if those paths are readable. Per-agent labels, MCP, leases or self-declared roles are not trustworthy authentication.
 - **Provider-native agents may run tools outside ACP callbacks.** Denying ACP client callbacks alone is insufficient to sandbox the CLI.
-- **Provider-native auth is necessary to make paid models run.** If credentials reside in a shared home folder, an unsandboxed worker may have broader access than requested. Narrow env inheritance reduces obvious leaks but does not solve home-directory access.
+- **Provider-native auth is necessary to make paid models run.** Credentials can reside in a shared home folder. Then an unsandboxed worker may have broader access than requested. Narrow env inheritance reduces obvious leaks. It does not solve home-directory access.
 - **No sandbox portability by assertion.** Read-only enforcement and resource limits need distinct Linux/Windows/macOS tests. Unsupported OS constraints return `SECURITY_CAPABILITY_UNAVAILABLE`, not an imaginary secure worker.
 - **Power loss vs daemon crash** are different. SQLite FULL offers stronger durability but cannot guarantee safety on failing/misconfigured storage, nor can it atomically commit a provider side effect.
 - **Prompt injection into the supervising model** cannot be eliminated merely by wrapping tool output as structured data. The daemon can prevent direct execution of forged messages, not all bad decisions by an LLM.
 
 ## What was actually executed
 
-- Existing 17 tests from prior red-team package; new byte-bound queue/JSON/SQLite/process/IPC reference contracts, including intentionally unsafe counterexamples, plus an actual scratch Git hook demonstration: `python -m unittest discover -s tests -v`.
+- Existing 17 tests from prior red-team package. New byte-bound queue/JSON/SQLite/process/IPC reference contracts, including intentionally unsafe counterexamples, plus an actual scratch Git hook demonstration: `python -m unittest discover -s tests -v`.
 - SQLite query, WAL FULL/NORMAL commit, checkpoint-stall, FIFO queue reference microbenchmarks using Python and a temporary local DB.
 - Document consistency checks for links, IDs and required audit sections.
-- **NOT RUN:** .NET builds (SDK not available in this environment), actual .NET unit or integration suites, ACP and provider CLIs, full OS sandboxes, Windows/macOS executions, fuzzing of a production parser, 30-minute/8-hour load tests, independent penetration testing.
+- **NOT RUN:** .NET builds (SDK not available in this environment), actual .NET unit or integration suites, ACP and provider CLIs and full OS sandboxes. Also NOT RUN: Windows/macOS executions, fuzzing of a production parser, 30-minute/8-hour load tests, independent penetration testing.
 
 ## Next blocker / stop-go criteria
 
-The design can be used for implementation planning, but **release remains blocked** until .NET runtime and native-provider conformance tests prove the listed safety and performance requirements on every advertised OS/RID. The first engineering experiment should build a minimal .NET IPC daemon with a bounded synchronous SQLite writer and mocked provider that emits adversarial stdout/stderr concurrently. It should prove STOP under saturation, security denial, and no duplicate external dispatch before adding the four real agents.
+The design can be used for implementation planning, but **release remains blocked**. .NET runtime and native-provider conformance tests must first prove the listed safety and performance requirements on every advertised OS/RID. The first engineering experiment should build a minimal .NET IPC daemon with a bounded synchronous SQLite writer and mocked provider that emits adversarial stdout/stderr concurrently. It should prove STOP under saturation, security denial, and no duplicate external dispatch before adding the four real agents.
 
 ## Sources
 

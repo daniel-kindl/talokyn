@@ -1,12 +1,12 @@
 # Agent Orchestrator v1 - Technical Architecture
 
-Status: red-team revision 1.1; proposed, not implemented
+Status: red-team revision 1.1. Proposed, not implemented
 Date: 2026-11-26
 Companions: [SPEC.md](SPEC.md), [VERIFICATION.md](VERIFICATION.md), and [RED_TEAM_REPORT.md](RED_TEAM_REPORT.md)
 
 ## 1. Architectural goals and boundaries
 
-Use one .NET 11/C# 15 codebase with clear project and interface boundaries. A persistent per-user daemon owns subprocesses, sessions, recovery and SQLite. Short-lived MCP bridges and CLI invocations connect to it through OS-local IPC. Provider adapters speak native protocols to worker CLIs; they never depend on DKSTACK or Factory.
+Use one .NET 11/C# 15 codebase with clear project and interface boundaries. A persistent per-user daemon owns subprocesses, sessions, recovery and SQLite. Short-lived MCP bridges and CLI invocations connect to it through OS-local IPC. Provider adapters speak native protocols to worker CLIs. They never depend on DKSTACK or Factory.
 
 Architecture must satisfy:
 
@@ -14,7 +14,7 @@ Architecture must satisfy:
 2. An MCP server process is not a worker supervisor.
 3. A provider conversation is not the same entity as its OS process or its active turn.
 4. Public APIs expose native capability gaps rather than fabricate unified semantics.
-5. State changes, artifact provenance and authorization decisions are recoverable when storage remains available, with explicit uncertainty/evidence gaps on external effects or disk failure.
+5. State changes, artifact provenance and authorization decisions are recoverable when storage remains available. External effects and disk failure record explicit uncertainty or evidence gaps.
 6. Only verified managed processes may be terminated. v1 plans workspace cleanup but never recursively deletes a workspace or its branch.
 7. No v1 dependency on a remote server, cloud infrastructure, container runtime or a particular agent provider.
 
@@ -98,16 +98,16 @@ The two ACP vendor modules should be thin configuration/policy adapters around o
 
 ## 3. Runtime process topology
 
-The proposed distribution is a single executable with command modes (`agentctl daemon run`, `agentctl mcp serve`, `agentctl session ...`), using modular libraries internally. An MCP client launches `agentctl mcp serve`; that process verifies/starts the local daemon, connects over restricted IPC, relays calls, and exits when the client disconnects. Its exit does not stop the daemon. The daemon process itself may crash or be killed; on Windows the selected Job Object policy may terminate managed workers, while on Unix orphaned workers may remain. Do not promise native worker survival across daemon crash. No administrator rights are required; v1 MUST refuse daemon execution as root/elevated administrator by default to avoid exposing privilege through a same-user IPC client.
+The proposed distribution is a single executable with command modes (`agentctl daemon run`, `agentctl mcp serve`, `agentctl session ...`), using modular libraries internally. An MCP client launches `agentctl mcp serve`. That process verifies/starts the local daemon, connects over restricted IPC, relays calls, and exits when the client disconnects. Its exit does not stop the daemon. The daemon process itself may crash or be killed. On Windows the selected Job Object policy may terminate managed workers, while on Unix orphaned workers may remain. Do not promise native worker survival across daemon crash. No administrator rights are required. V1 MUST refuse daemon execution as root/elevated administrator by default to avoid exposing privilege through a same-user IPC client.
 
-- Linux/macOS: Unix domain socket in a restricted per-user runtime directory (never world writable); stale socket handling tied to a daemon instance ID.
-- Windows: named pipe with an access control list restricted to the owning user; deny cross-user access.
-- Per-user daemon singleton enforced with OS-appropriate instance mutex/lock and a protocol health handshake. Distinguish stale lock from slow startup; PID alone is insufficient due to reuse. On lock ambiguity, fail closed instead of launching a second supervisor.
-- MCP stdio must write only MCP protocol content to stdout; diagnostics go to stderr/log files.
+- Linux/macOS: Unix domain socket in a restricted per-user runtime directory (never world writable). Stale socket handling tied to a daemon instance ID.
+- Windows: named pipe with an access control list restricted to the owning user. Deny cross-user access.
+- Per-user daemon singleton enforced with OS-appropriate instance mutex/lock and a protocol health handshake. Distinguish stale lock from slow startup. PID alone is insufficient due to reuse. On lock ambiguity, fail closed instead of launching a second supervisor.
+- MCP stdio must write only MCP protocol content to stdout. Diagnostics go to stderr/log files.
 - IPC handshake exchanges `wireVersion`, client/daemon version, feature negotiation and daemon instance ID.
 - No network socket, TCP listener or browser interface in v1.
 
-If agents of the same OS account all invoke the same local IPC endpoint, the threat model is single-user trusted processes. A client-supplied name, parent ID, session lease or MCP connection must not be mistaken for strong proof of unique human/agent identity. Restrict process environments and provider credentials when genuine separation is necessary; if this cannot be enforced, label it a known risk. Worker-facing MCP registration must use narrowly scoped delegation references rather than exposing the full administrative surface by default.
+If agents of the same OS account all invoke the same local IPC endpoint, the threat model is single-user trusted processes. A client-supplied name, parent ID, session lease or MCP connection must not be mistaken for strong proof of unique human/agent identity. Restrict process environments and provider credentials when genuine separation is necessary. If this cannot be enforced, label it a known risk. Worker-facing MCP registration must use narrowly scoped delegation references rather than exposing the full administrative surface by default.
 
 ## 4. Domain entities and contracts
 
@@ -164,7 +164,7 @@ There are **four different truths**. Do not infer any of them from another:
 
 `Archived` is legal only if process is proved gone, no active turn exists, no unknown operations remain, and queued messages are terminally fenced. `Stopped` requires observed process exit/closed native session, not merely successful invocation of stop. If process identity cannot be proved after restart, set `NeedsReconciliation`, not Stopped.
 
-Session availability is a **derived predicate**: conversation Available, process connected/alive (or native attach succeeds), no nonterminal turn, no unknown native effect, durable storage healthy, and valid control lease for mutation.
+Session availability is a **derived predicate**. All of these must be true: conversation Available, process connected/alive (or native attach succeeds) and no nonterminal turn. Also: no unknown native effect, durable storage healthy, and valid control lease for mutation.
 
 State invariants:
 
@@ -173,8 +173,8 @@ State invariants:
 - `Stop` fences queued work immediately and prevents future turn dispatch.
 - `Cancel` never means successfully interrupted until provider terminal evidence or confirmed process exit. ACP cancel sends a notification and has no RPC response.
 - `Archive` refuses when native process/turn/effect state is uncertain.
-- `Resume` requires fresh capability, workspace root and tool/permission validation; previously approved tools are not automatically inherited.
-- Process restart does not imply conversation recovery; conversation recovery does not restore a partially executed turn.
+- `Resume` requires fresh capability, workspace root and tool/permission validation. Previously approved tools are not automatically inherited.
+- Process restart does not imply conversation recovery. Conversation recovery does not restore a partially executed turn.
 
 ### Fenced control lease
 
@@ -182,15 +182,15 @@ Each managed session has monotonically increasing `control_epoch` and `turn_gene
 
 On transfer, expiry reclamation, stop, archive or emergency lock: increment control epoch and mark every undispatched command from older epochs Fenced. The session mailbox validates lease, expected session version, current generation, and stop state **again just before native dispatch**. Commands that already crossed the external dispatch boundary cannot be rolled back and may become `EffectUnknown`.
 
-Do not use an in-memory check followed by an independent provider write: that is a time-of-check/time-of-use race. Lease expiration itself is not enough to cancel an already executing turn. For v1 only one control lease holder per session may submit commands; `status/events` are read-only.
+Do not use an in-memory check followed by an independent provider write: that is a time-of-check/time-of-use race. Lease expiration itself is not enough to cancel an already executing turn. For v1 only one control lease holder per session may submit commands. `status/events` are read-only.
 
 ### Delivery outcomes
 
-Local request idempotency prevents duplicate *accepted operations*, not duplicate *external provider effects*. Persist `DispatchIntent` before any native call. Persist provider ack when received. If the daemon dies after the native side effect but before the ack is recorded, transition to `EffectUnknown` and **do not auto-retry**. Query provider state without side effects if supported; otherwise require explicit operator reconciliation. `provider-accepted` never means the model applied a steer.
+Local request idempotency prevents duplicate *accepted operations*, not duplicate *external provider effects*. Persist `DispatchIntent` before any native call. Persist provider ack when received. If the daemon dies after the native side effect but before the ack is recorded, transition to `EffectUnknown` and **do not auto-retry**. Query provider state without side effects if supported. Otherwise require explicit operator reconciliation. `provider-accepted` never means the model applied a steer.
 
 ### Parent/child lineage
 
-`parentSessionId` from user input is a reference, not authority. A managed worker gets a daemon-issued opaque scoped delegation reference tying it to its actual parent session, task, depth, and remaining reservations. Reserve slots/limits atomically. A trusted same-OS-user process can still bypass this daemon by launching external CLIs; do not claim complete OS-wide budget enforcement.
+`parentSessionId` from user input is a reference, not authority. A managed worker gets a daemon-issued opaque scoped delegation reference tying it to its actual parent session, task, depth, and remaining reservations. Reserve slots/limits atomically. A trusted same-OS-user process can still bypass this daemon by launching external CLIs. Do not claim complete OS-wide budget enforcement.
 
 ## 5. API and transport contracts
 
@@ -214,7 +214,7 @@ Local request idempotency prevents duplicate *accepted operations*, not duplicat
 | `operation_get` | operation ID | progress, result, error |
 | `daemon_status` | none | health, version, supported capabilities |
 
-Prefer short MCP calls. Long work returns an operation ID; hosts poll `operation_get` or `session_events`. MCP Tasks v2 is optional and only valid after protocol `2026-07-28` negotiation with explicit client opt-in; it is not wire-compatible with the experimental earlier Tasks extension. It MUST NOT be a requirement for basic session control.
+Prefer short MCP calls. Long work returns an operation ID. Hosts poll `operation_get` or `session_events`. MCP Tasks v2 is optional and only valid after protocol `2026-07-28` negotiation with explicit client opt-in. It is not wire-compatible with the experimental earlier Tasks extension. It MUST NOT be a requirement for basic session control.
 
 ### Normalized event
 
@@ -231,7 +231,7 @@ Prefer short MCP calls. Long work returns an operation ID; hosts poll `operation
 }
 ```
 
-Event types include: `session.state`, `turn.state`, `message.delivery`, `agent.text_delta`, `agent.thought_summary` (only if provider reports it), `tool.started`, `tool.completed`, `permission.requested`, `permission.resolved`, `usage.reported`, `artifact.recorded`, `warning`, `error`, `recovery.required`, and `audit.action`. Events are append-only until explicit retention/purge. Clients deduplicate by session+sequence. A response includes retained-from cursor, evidence-completeness and a snapshot recovery link; expired cursors return CURSOR_EXPIRED. Under healthy storage, required transitions/errors/audits are persisted. If spool or disk becomes unavailable, pause dispatch and report incomplete evidence rather than silently claiming a complete event stream. Untrusted text never drives command execution.
+Event types include: `session.state`, `turn.state`, `message.delivery`, `agent.text_delta`, `agent.thought_summary` (only if provider reports it), `tool.started`, `tool.completed`, `permission.requested`, `permission.resolved`, `usage.reported`, `artifact.recorded`, `warning`, `error`, `recovery.required`, and `audit.action`. Events are append-only until explicit retention/purge. Clients deduplicate by session+sequence. A response includes retained-from cursor, evidence-completeness and a snapshot recovery link. Expired cursors return CURSOR_EXPIRED. Under healthy storage, required transitions/errors/audits are persisted. If spool or disk becomes unavailable, pause dispatch and report incomplete evidence rather than silently claiming a complete event stream. Untrusted text never drives command execution.
 
 ## 6. Provider implementation map
 
@@ -242,24 +242,24 @@ Event types include: `session.state`, `turn.state`, `message.delivery`, `agent.t
 | Grok Build | `grok agent stdio` ACP v1 | session/new, session/prompt, cancel, optional resume/load | ACP capability negotiation; avoid automatic approval flags |
 | Antigravity | `agy acp` ACP v1 | session/new, session/prompt, cancel, optional resume/load/close | Client capabilities, sandbox/permission controls vary by platform/version |
 
-Keep **host integration** separate from worker integration. A provider can be a worker even if its interactive host cannot call MCP; v1 host support is verified by registering and invoking the same MCP tools from its supported client environment. Avoid self-delegation loops via budgets and depth limits, not by prohibiting a provider from supervising itself.
+Keep **host integration** separate from worker integration. A provider can be a worker even if its interactive host cannot call MCP. V1 host support is verified by registering and invoking the same MCP tools from its supported client environment. Avoid self-delegation loops via budgets and depth limits, not by prohibiting a provider from supervising itself.
 
 `ACP v1` is the baseline. Its optional `session/load`, `session/resume`, and `session/close` methods require negotiation. Never infer them from the existence of the ACP executable.
 
-Use native provider logins, not direct model API calls. In particular, Anthropic's general C# Messages API SDK is not a replacement for controlling an existing Claude Code coding session. Treat ACP `session/cancel` as fire-and-forget, and ACP `session/resume`, `session/load`, additional directories and client system prompt as capability-gated. Each resume explicitly supplies authorized cwd, MCP servers and any roots; never blindly restore broader access.
+Use native provider logins, not direct model API calls. In particular, Anthropic's general C# Messages API SDK is not a replacement for controlling an existing Claude Code coding session. Treat ACP `session/cancel` as fire-and-forget, and ACP `session/resume`, `session/load`, additional directories and client system prompt as capability-gated. Each resume explicitly supplies authorized cwd, MCP servers and any roots. Never blindly restore broader access.
 
 ## 7. Process supervisor and failure behavior
 
-Create child processes with explicit argument arrays, working directory, environment allowlist and redirected stdio. Use async draining, bounded buffers, timeouts and cancellation. Never invoke a shell merely to construct a provider command. Distinguish provider process exit, native conversation lifecycle and turn completion; an OS PID or successful close request does not establish model success.
+Create child processes with explicit argument arrays, working directory, environment allowlist and redirected stdio. Use async draining, bounded buffers, timeouts and cancellation. Never invoke a shell merely to construct a provider command. Distinguish provider process exit, native conversation lifecycle and turn completion. An OS PID or successful close request does not establish model success.
 
 - Windows: use Job Objects with suspend-create/assign/resume discipline where needed to avoid children escaping a job assignment race. Nested/breakaway jobs require separate tests. With KILL_ON_JOB_CLOSE, daemon crash normally terminates associated workers. Do not promise they continue through daemon restart.
-- Linux: use process groups/session ownership or a user-level service scope with tested containment. A process may fork/setsid to escape naive group cleanup; note limits of non-sandboxed provider CLIs. Do not kill by PID without identity revalidation.
-- macOS: use process-group/session controls with platform-specific signal behavior; detached child survival/cleanup behavior must be tested. Do not claim Linux process-group behavior is identical.
+- Linux: use process groups/session ownership or a user-level service scope with tested containment. A process may fork/setsid to escape naive group cleanup. Note limits of non-sandboxed provider CLIs. Do not kill by PID without identity revalidation.
+- macOS: use process-group/session controls with platform-specific signal behavior. Detached child survival/cleanup behavior must be tested. Do not claim Linux process-group behavior is identical.
 - All systems: recorded worker process identity includes PID plus start time and runtime instance token to avoid PID-reuse errors.
-- Cancel path: record intent -> send provider cancel -> await terminal evidence with deadline -> if needed terminate managed group/job -> reconcile process identity -> classify interrupted/unknown; preserve workspace. When cancel races completed turn, preserve the real observed turn result.
+- Cancel path: record intent -> send provider cancel -> await terminal evidence with deadline -> if needed terminate managed group/job -> reconcile process identity -> classify interrupted/unknown. Preserve workspace. When cancel races completed turn, preserve the real observed turn result.
 - Worker process and provider conversation have different lifetimes. A stopped process may be replaced to resume a conversation.
 
-Do not assume workers survive a daemon crash on every platform. A Windows Job Object configured to terminate on owner exit intentionally kills children; Unix workers may become orphaned. Startup reconciliation must use recorded process identity, native session IDs and event evidence. Never attach to a process purely by PID or kill an unproven process. A dead daemon cannot guarantee collecting all output produced during downtime; mark evidence incomplete. The guarantee is **durable committed metadata and safe recovery classification**, not transparent preservation of in-flight generation.
+Do not assume workers survive a daemon crash on every platform. A Windows Job Object configured to terminate on owner exit intentionally kills children. Unix workers may become orphaned. Startup reconciliation must use recorded process identity, native session IDs and event evidence. Never attach to a process purely by PID or kill an unproven process. A dead daemon cannot guarantee collecting all output produced during downtime. Mark evidence incomplete. The guarantee is **durable committed metadata and safe recovery classification**, not transparent preservation of in-flight generation.
 
 ## 8. Persistence and consistency
 
@@ -282,37 +282,37 @@ artifacts(artifact_id, session_id, kind, path, sha256, metadata_json)
 audit(audit_id, actor_scope, command, target, decision, reason, time)
 ```
 
-Transactions must atomically write operation acceptance, admission/lease epoch, session state version, capacity reservations and journal sequence/event. Write an outbox/dispatch intent before external non-idempotent operations; there is no atomic transaction spanning SQLite and a provider process. If acknowledgment is lost, record EffectUnknown and reconcile without blind replay. Consumers receive at-least-once event delivery from cursors, **not exactly-once provider action semantics**. Enforce uniqueness on `(caller_context, request_id)` with a canonical payload digest and on `(session_id, sequence)`; use a single mailbox per session.
+Transactions must atomically write operation acceptance, admission/lease epoch, session state version, capacity reservations and journal sequence/event. Write an outbox/dispatch intent before external non-idempotent operations. There is no atomic transaction spanning SQLite and a provider process. If acknowledgment is lost, record EffectUnknown and reconcile without blind replay. Consumers receive at-least-once event delivery from cursors, **not exactly-once provider action semantics**. Enforce uniqueness on `(caller_context, request_id)` with a canonical payload digest and on `(session_id, sequence)`. Use a single mailbox per session.
 
-Use short-lived SqliteConnection instances, a single-writer strategy, WAL and busy timeouts on proven local filesystems; SQLite WAL is not for multi-host network filesystems. Do not share a connection concurrently across tasks. Use ordered migration checks/backup and fail closed on corruption/downgrade. For large payloads, write temporary blobs, fsync data, atomically rename/publish, and only then commit the durable reference; scan/delete orphan temp blobs at startup after a grace period. Distinguish redacted/truncated content from complete evidence; expired cursors return CURSOR_EXPIRED. If required storage fails, refuse new dispatch.
+Use short-lived SqliteConnection instances, a single-writer strategy, WAL and busy timeouts on proven local filesystems. SQLite WAL is not for multi-host network filesystems. Do not share a connection concurrently across tasks. Use ordered migration checks/backup and fail closed on corruption/downgrade. For large payloads, write temporary blobs, fsync data, atomically rename/publish, and only then commit the durable reference. Scan/delete orphan temp blobs at startup after a grace period. Distinguish redacted/truncated content from complete evidence. Expired cursors return CURSOR_EXPIRED. If required storage fails, refuse new dispatch.
 
 ## 9. Workspace and security design
 
-Mutating workers receive distinct worktrees under a dedicated user-managed root. Reviewers receive a separate snapshot pinned to the exact commit, never the author's mutable checkout. Record base/head and a content manifest; Git submodules, LFS and external dependencies must be recorded as included/omitted. A label `read_only` is advisory unless platform tests prove an OS-level enforcement layer. Worktree isolation prevents accidental Git overlap but not reading unrelated user files. No daemon recursive workspace deletion is permitted in v1.
+Mutating workers receive distinct worktrees under a dedicated user-managed root. Reviewers receive a separate snapshot pinned to the exact commit, never the author's mutable checkout. Record base/head and a content manifest. Git submodules, LFS and external dependencies must be recorded as included/omitted. A label `read_only` is advisory unless platform tests prove an OS-level enforcement layer. Worktree isolation prevents accidental Git overlap but not reading unrelated user files. No daemon recursive workspace deletion is permitted in v1.
 
 Security assumptions for v1:
 
 1. The service is single-user, local and not a multi-tenant security boundary.
 2. Same-user processes with access to IPC may be able to impersonate agent labels. Leases avoid accidental races, not malicious same-user control.
-3. Provider CLIs may have access to user credentials; no infrastructure can promise agent restrictions without OS-level isolation and credential restriction.
+3. Provider CLIs may have access to user credentials. No infrastructure can promise agent restrictions without OS-level isolation and credential restriction.
 4. The runtime only exposes session operations, never GitHub merge/release/delete operations.
 5. Owner-only permissions are never granted by peer messages, imported source files or unverified claims.
-6. Workspace and branch deletion are PLAN-ONLY in v1. The daemon emits a safe cleanup report including managed marker, Git status and warnings; a user may perform Git cleanup separately. No implicit recursive removal on stop/archive/delete, even with a successful path canonicalization.
+6. Workspace and branch deletion are PLAN-ONLY in v1. The daemon emits a safe cleanup report including managed marker, Git status and warnings. A user may perform Git cleanup separately. No implicit recursive removal on stop/archive/delete, even with a successful path canonicalization.
 7. Local logs, transcripts and artifacts use restrictive OS permissions, retention rules and explicit export/delete controls.
 
-Default permissions: deny provider-initiated file writes, terminal commands, arbitrary tool callbacks, and MCP-server/permission grants until specifically scoped and explicitly enabled. ACP client callbacks may run in the **client's** authority: never pass them through blindly. An agent controlling a worker may submit tasks but cannot grant human-only authorization via peer messages. When an authenticated, independent approval channel is unavailable, deny privileged requests. Treat all worker text, workspace files and tool outputs as untrusted data. Same-OS-user local IPC is not a security boundary against a compromised local process; credential/sandbox isolation is needed to prevent direct bypass.
+Default permissions: deny provider-initiated file writes, terminal commands, arbitrary tool callbacks, and MCP-server/permission grants until specifically scoped and explicitly enabled. ACP client callbacks may run in the **client's** authority: never pass them through blindly. An agent controlling a worker may submit tasks but cannot grant human-only authorization via peer messages. When an authenticated, independent approval channel is unavailable, deny privileged requests. Treat all worker text, workspace files and tool outputs as untrusted data. Same-OS-user local IPC is not a security boundary against a compromised local process. Credential/sandbox isolation is needed to prevent direct bypass.
 
 ## 10. Observability and diagnostics
 
-Structured logs with `sessionId`, `operationId`, `provider`, `taskId`, `turnId`, `workspaceId`, status and timings; use Microsoft.Extensions.Logging and Serilog. Export OpenTelemetry traces optionally. Do not log secrets or full prompt contents by default. CLI `doctor`, `status`, `events`, `sessions`, and `diagnostics export` support troubleshooting with redaction.
+Structured logs with `sessionId`, `operationId`, `provider`, `taskId`, `turnId`, `workspaceId`, status and timings. Use Microsoft.Extensions.Logging and Serilog. Export OpenTelemetry traces optionally. Do not log secrets or full prompt contents by default. CLI `doctor`, `status`, `events`, `sessions`, and `diagnostics export` support troubleshooting with redaction.
 
-Expose session count, active workers, operation error/uncertain rate, queue depth, event storage usage, retained-from cursor, evidence completeness and provider-reported token/cost where available. Distinguish unavailable usage from zero usage. Avoid raw prompts in ordinary logs; security-sensitive transcripts require restricted access and retention.
+Expose session count, active workers, operation error/uncertain rate, queue depth, event storage usage, retained-from cursor, evidence completeness and provider-reported token/cost where available. Distinguish unavailable usage from zero usage. Avoid raw prompts in ordinary logs. Security-sensitive transcripts require restricted access and retention.
 
 ## 11. Deployment and versioning
 
-Publish self-contained, single-file builds for `linux-x64`, `linux-arm64`, `win-x64`, `osx-x64`, and `osx-arm64`. Keep the managed runtime initially; Native AOT becomes an option after all dependencies and JSON serialization contracts pass trim/AOT checks. Releases require CI validation on representative native OS runners. No mandatory administrator access or permanently running network service. Provide OS-user-level daemon autostart optionally.
+Publish self-contained, single-file builds for `linux-x64`, `linux-arm64`, `win-x64`, `osx-x64`, and `osx-arm64`. Keep the managed runtime initially. Native AOT becomes an option after all dependencies and JSON serialization contracts pass trim/AOT checks. Releases require CI validation on representative native OS runners. No mandatory administrator access or permanently running network service. Provide OS-user-level daemon autostart optionally.
 
-Use stable NuGet dependencies only, centrally pinned with lockfiles. `System.CommandLine 3.0.0` and `Microsoft.Data.Sqlite 11.0.0` were available by 2026-11-26. Select MCP SDK version at implementation time after compatibility tests; use official C# SDK hosting and its Tasks extension only for clients that negotiate it.
+Use stable NuGet dependencies only, centrally pinned with lockfiles. `System.CommandLine 3.0.0` and `Microsoft.Data.Sqlite 11.0.0` were available by 2026-11-26. Select MCP SDK version at implementation time after compatibility tests. Use official C# SDK hosting and its Tasks extension only for clients that negotiate it.
 
 ## 12. ADRs to record once a repository exists
 
@@ -323,20 +323,20 @@ Use stable NuGet dependencies only, centrally pinned with lockfiles. `System.Com
 - ADR-005: Session/turn/operation separation and durable at-least-once journal.
 - ADR-006: Git worktree isolation vs explicit OS sandbox enforcement.
 - ADR-007: Single-user trust boundary, control leases, owner-only approvals.
-- ADR-008: Managed runtime and self-contained single-file release first; AOT later.
+- ADR-008: Managed runtime and self-contained single-file release first. AOT later.
 
 ## 13. Release-blocking command, permission and recovery design
 
 ### Dispatch sequence and hard boundary
 
-1. Accept RPC only after OS-local endpoint checks; infer no verified human identity from an agent name.
+1. Accept RPC only after OS-local endpoint checks. Infer no verified human identity from an agent name.
 2. Validate input, provider capabilities, exact workspace identity and requested permissions.
-3. In a SQLite transaction reserve capacity, check `state_version`, `control_epoch`, turn generation and stop flags; persist operation plus intent.
+3. In a SQLite transaction reserve capacity, check `state_version`, `control_epoch`, turn generation and stop flags. Persist operation plus intent.
 4. Add command to the bounded per-session mailbox.
 5. At dequeue, under one session-serialized dispatcher, revalidate *all* control fields. An epoch/version mismatch becomes Fenced without contacting the provider.
 6. Persist `DispatchIntent`, then cross the native RPC/process boundary. This is a point of uncertain effect.
 7. Persist observed provider acknowledgments and terminal evidence, or set `EffectUnknown` after uncertain transport loss.
-8. Never automatically replay a mutating native request with unknown outcome. Reconcile using read-only provider state if possible; otherwise stop and request operator action.
+8. Never automatically replay a mutating native request with unknown outcome. Reconcile using read-only provider state if possible. Otherwise stop and request operator action.
 
 A database transaction cannot make an external provider prompt exactly once. A lease cannot revoke work already accepted by a provider. Record both limitations.
 
@@ -348,16 +348,16 @@ An unreconciled EffectUnknown blocks new turns on the affected session. Operator
 
 ### Client permission callbacks
 
-ACP agents can request client-side operations and permission grants. The adapter must provide a tightly scoped client implementation: denied by default, explicitly recognized methods only, canonicalized paths rooted in an allowed workspace, size/time limits, no arbitrary shell execution by the daemon. Worktree-only containment is best-effort and cannot substitute OS sandboxing. Do not forward the daemon's own MCP orchestration tools to an untrusted worker by default.
+ACP agents can request client-side operations and permission grants. The adapter must provide a tightly scoped client implementation. It is denied by default and accepts explicitly recognized methods only. Paths are canonicalized and rooted in an allowed workspace, with size/time limits. The daemon runs no arbitrary shell execution. Worktree-only containment is best-effort and cannot substitute OS sandboxing. Do not forward the daemon's own MCP orchestration tools to an untrusted worker by default.
 
 ### Crash reconciliation and evidence
 
 - Surviving TCP/stdio protocol calls may have executed even when local persistence has no ack. Such operations become EffectUnknown.
 - If SQLite is inaccessible, no new native dispatch is permitted. Emergency process termination may still be attempted, but evidence may be incomplete.
-- On daemon boot, classify every previously active process by verified platform identity and every conversation by provider ID/capability; do not guess success or automatically reproduce prompts.
+- On daemon boot, classify every previously active process by verified platform identity and every conversation by provider ID/capability. Do not guess success or automatically reproduce prompts.
 - If a native provider session survives but attaches with a changed cwd/toolset/permission profile, refuse until the prior policy has been reauthorized.
-- On disk-full during output, pause or terminate noisy agents according to a documented policy; bounded memory is more important than maintaining a false lossless transcript claim.
-- On retention expiry, responses expose `retainedFromSequence` and evidence status; never return a seamless cursor across missing content.
+- On disk-full during output, pause or terminate noisy agents according to a documented policy. Bounded memory is more important than maintaining a false lossless transcript claim.
+- On retention expiry, responses expose `retainedFromSequence` and evidence status. Never return a seamless cursor across missing content.
 
 ### Two concrete forbidden operations
 

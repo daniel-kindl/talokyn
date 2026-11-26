@@ -1,13 +1,13 @@
 # Agent Orchestrator v1 - Adversarial Design Review
 
 Review date: 2026-11-26
-Status: design-level red-team, revised documents generated; NO production runtime exists
+Status: design-level red-team, revised documents generated. NO production runtime exists
 Baseline: original SPEC.md, ARCHITECTURE.md, VERIFICATION.md in the previous design package
 Output: revised SPEC.md, ARCHITECTURE.md, VERIFICATION.md and runnable reference contract tests
 
 ## Verdict
 
-**The original v1 design was not implementation-ready.** Its main weakness was presenting local state, session control, workspace separation and human approvals as stronger guarantees than an external process orchestrator can provide. An implementation that followed the ambiguous parts could produce duplicate agent actions, stale steering, misleading completion states, unsafe cleanup, unearned read-only claims or unauthorized operations through provider tools.
+**The original v1 design was not implementation-ready.** Its main weakness: it presented local state, session control, workspace separation and human approvals as strong guarantees. An external process orchestrator cannot provide guarantees that strong. An implementation that followed the ambiguous parts could produce duplicate agent actions, stale steering and misleading completion states. It could also produce unsafe cleanup, unearned read-only claims or unauthorized operations through provider tools.
 
 The revised design is substantially safer **on paper**, not verified in production. All actual .NET integration tests, authenticated provider tests, platform-specific process tests, filesystem race tests and security penetration tests are still NOT RUN.
 
@@ -15,31 +15,31 @@ The revised design is substantially safer **on paper**, not verified in producti
 
 1. Read all three original documents in full and compared their guarantees against each other.
 2. Built failure traces around command admission, lease transfer, native RPC ambiguity, crash recovery, storage loss, permissions and filesystem races.
-3. Checked ACP v1 session setup/cancel semantics, Codex App Server lifecycle, MCP C# SDK task negotiation, Windows Job Object behavior, SQLite WAL constraints and MCP trust assumptions against upstream documentation.
+3. Checked these against upstream documentation: ACP v1 session setup/cancel semantics, Codex App Server lifecycle and MCP C# SDK task negotiation. Also Windows Job Object behavior, SQLite WAL constraints and MCP trust assumptions.
 4. Wrote a minimal deliberately unsafe model for two recurring failures, then a fenced reference model. Ran Python standard-library unit tests against both. These tests are SPECIFICATION EXAMPLES, **not** .NET implementation tests.
 5. Revised v1 contracts and verification gates to distinguish what is guaranteed, conditional, impossible to guarantee, and still needing real testing.
 
-Severity: **P0** = release-blocking architectural correctness/security risk; **P1** = severe robustness/compatibility risk; **P2** = scope/documentation/operational risk.
+Severity: **P0** = release-blocking architectural correctness/security risk. **P1** = severe robustness/compatibility risk. **P2** = scope/documentation/operational risk.
 
 ## Critical findings (P0)
 
 ### F01 - Stale control lease causes unauthorized steering
 
-**Attack:** controller A queues steer while its lease is valid. Lease expires; controller B acquires a new lease. Old A command is dispatched because the dispatcher only checks authorization at enqueue.
+**Attack:** controller A queues steer while its lease is valid. Lease expires. Controller B acquires a new lease. Old A command is dispatched because the dispatcher only checks authorization at enqueue.
 
-**Failure:** mutually inconsistent instructions can reach one agent; recorded lease owner and actual controller diverge.
+**Failure:** mutually inconsistent instructions can reach one agent. Recorded lease owner and actual controller diverge.
 
-**Fix:** monotonic `control_epoch` and `turn_generation`; validate current token, epoch, session version and turn generation both at admission and immediately before native dispatch under a per-session serialized mailbox. Queue items from older epochs become Fenced. An already dispatched call cannot be revoked, so its effect is reported honestly.
+**Fix:** monotonic `control_epoch` and `turn_generation`. Validate current token, epoch, session version and turn generation both at admission and immediately before native dispatch under a per-session serialized mailbox. Queue items from older epochs become Fenced. An already dispatched call cannot be revoked, so its effect is reported honestly.
 
 **Proof required:** ADV-001, ADV-002 and full short-interleaving exploration. Reference model includes the unsafe counterexample and corrected fencing.
 
 ### F02 - Lost acknowledgment leads to duplicate native actions
 
-**Attack:** provider accepts `turn/start` or `session/new`; daemon loses response; client retries the same request; a second native turn/session is created.
+**Attack:** provider accepts `turn/start` or `session/new`. Daemon loses response. Client retries the same request. A second native turn/session is created.
 
 **Failure:** duplicate edits, test runs, API calls or external side effects. Local idempotency keys alone cannot undo a provider request already executed.
 
-**Fix:** persist intent before side effect; acknowledge local intent idempotently; represent native result as EffectUnknown after uncertain loss; never automatically replay a non-idempotent provider action. Query native state read-only where possible. Otherwise require operator reconciliation.
+**Fix:** persist intent before side effect. Acknowledge local intent idempotently. Represent native result as EffectUnknown after uncertain loss. Never automatically replay a non-idempotent provider action. Query native state read-only where possible. Otherwise require operator reconciliation.
 
 **Proof required:** ADV-003, ADV-004, ADV-022, fake provider counter exactly 1 after ambiguous response. The unsafe reference model demonstrably executes twice.
 
@@ -49,33 +49,33 @@ Severity: **P0** = release-blocking architectural correctness/security risk; **P
 
 **Failure:** fake human approval or false independence. OS-user-restricted sockets are not per-agent authentication.
 
-**Fix:** make trusted same-OS-user threat boundary explicit; use scopes/leases to prevent accidental collisions, not to claim cryptographic actor identity. No owner-only release, merge, deploy or settings-change operation in the service. Destructive metadata purge must be an explicit operator flow but is not strong human authentication. Genuine separation requires dedicated OS identities, credential isolation and externally enforced approvals. Refuse running the daemon as root/elevated administrator by default, or its IPC endpoint may become a privilege escalation surface.
+**Fix:** make trusted same-OS-user threat boundary explicit. Use scopes/leases to prevent accidental collisions, not to claim cryptographic actor identity. No owner-only release, merge, deploy or settings-change operation in the service. Destructive metadata purge must be an explicit operator flow but is not strong human authentication. Genuine separation requires dedicated OS identities, credential isolation and externally enforced approvals. Refuse running the daemon as root/elevated administrator by default, or its IPC endpoint may become a privilege escalation surface.
 
-**Proof required:** ADV-008, ADV-023, SEC-007. **Residual:** malicious same-user agents can bypass this runtime entirely; this cannot be fixed by a C# API contract alone.
+**Proof required:** ADV-008, ADV-023, SEC-007. **Residual:** malicious same-user agents can bypass this runtime entirely. This cannot be fixed by a C# API contract alone.
 
 ### F04 - Provider callback can cross a privilege boundary
 
 **Attack:** ACP worker asks its client for terminal execution, file writing, permission grant or MCP server configuration. Naive ACP client implements callbacks with daemon's own filesystem/process privileges or forwards an agent's approval.
 
-**Failure:** confused deputy; worker gains powers not granted by its task.
+**Failure:** confused deputy. Worker gains powers not granted by its task.
 
-**Fix:** explicit allowlist of ACP client methods, default deny for file/terminal/permission callbacks, capability and workspace checks, no arbitrary shell in daemon, no inheritance of full orchestrator MCP tools. External native agents can still access ambient OS credentials if unsandboxed.
+**Fix:** explicit allowlist of ACP client methods, default deny for file/terminal/permission callbacks, and capability and workspace checks. No arbitrary shell in daemon, and no inheritance of full orchestrator MCP tools. External native agents can still access ambient OS credentials if unsandboxed.
 
 **Proof required:** ADV-009, ADV-021 and SEC-004/005.
 
 ### F05 - Filesystem cleanup has a TOCTOU hole
 
-**Attack:** check a canonical workspace path and Git status; another process swaps a directory junction/symlink/reparse point or adds untracked data before deletion.
+**Attack:** check a canonical workspace path and Git status. Another process swaps a directory junction/symlink/reparse point or adds untracked data before deletion.
 
-**Failure:** cleanup may delete work not owned by the orchestrator; checking a path string once is not sufficient.
+**Failure:** cleanup may delete work not owned by the orchestrator. Checking a path string once is not sufficient.
 
-**Fix:** v1 daemon workspace cleanup is **plan-only**. Never recursively delete worktrees or branches. Manual Git cleanup remains separate; show managed marker, Git status and preservation warnings. Future automated deletion needs an independently reviewed OS-anchored algorithm and TOCTOU tests.
+**Fix:** v1 daemon workspace cleanup is **plan-only**. Never recursively delete worktrees or branches. Manual Git cleanup remains separate. Show managed marker, Git status and preservation warnings. Future automated deletion needs an independently reviewed OS-anchored algorithm and TOCTOU tests.
 
-**Proof required:** ADV-011, SEC-001/003; no recursively deleting API in v1.
+**Proof required:** ADV-011, SEC-001/003. No recursively deleting API in v1.
 
 ### F06 - A read-only reviewer is not actually read-only
 
-**Attack:** reviewer runs in an ordinary writable Git worktree and can modify files, credentials or the local repository while returning a verdict about a supposed fixed snapshot.
+**Attack:** reviewer runs in an ordinary writable Git worktree and can modify files, credentials or the local repository. It still returns a verdict about a supposed fixed snapshot.
 
 **Failure:** contaminated review evidence, conflict of interest or accidental modification to the author workspace.
 
@@ -85,13 +85,13 @@ Severity: **P0** = release-blocking architectural correctness/security risk; **P
 
 ### F07 - Daemon crash and process survival were conflated
 
-**Attack:** kill daemon while a worker executes a tool. On Windows, a kill-on-close Job Object terminates its workers; on Unix, orphaned workers may remain, possibly detached.
+**Attack:** kill daemon while a worker executes a tool. On Windows, a kill-on-close Job Object terminates its workers. On Unix, orphaned workers may remain, possibly detached.
 
 **Failure:** 'session persists' can be misread as 'the executing process continues on every OS'. Attempting to kill by PID alone can hit a recycled unrelated process.
 
-**Fix:** distinguish client/bridge disconnect, daemon death, OS reboot, worker death and provider conversation loss. Only client disconnect with healthy daemon guarantees live workers continue. Recover committed state; verify platform process identity; classify unobserved execution NeedsReconciliation and preserve artifacts.
+**Fix:** distinguish client/bridge disconnect, daemon death, OS reboot, worker death and provider conversation loss. Only client disconnect with healthy daemon guarantees live workers continue. Recover committed state. Verify platform process identity. Classify unobserved execution NeedsReconciliation and preserve artifacts.
 
-**Proof required:** ADV-013/014; RES-001/002/003/004/006 on each OS.
+**Proof required:** ADV-013/014. RES-001/002/003/004/006 on each OS.
 
 ### F08 - Storage failure can falsify audit durability
 
@@ -99,15 +99,15 @@ Severity: **P0** = release-blocking architectural correctness/security risk; **P
 
 **Failure:** event loss, dangling refs, false 'recorded successfully', unbounded buffering, or repeated execution when recovering.
 
-**Fix:** transactionally record intent and reserved slots; stage large blobs with checksums/atomic publish and startup orphan reconciliation; prevent new dispatch if mandatory persistence fails; expose evidence-incomplete state. Never claim zero loss during daemon downtime or disk failure.
+**Fix:** transactionally record intent and reserved slots. Stage large blobs with checksums/atomic publish and startup orphan reconciliation. Prevent new dispatch if mandatory persistence fails. Expose evidence-incomplete state. Never claim zero loss during daemon downtime or disk failure.
 
-**Proof required:** ADV-016/017/022; RES-007/008/010.
+**Proof required:** ADV-016/017/022. RES-007/008/010.
 
 ### F09 - Session state model omitted many races
 
 **Attack:** cancel vs successful completion, archive while process alive, stop while starting, resume with unresolved turn, or stop while queued follow-up exists.
 
-**Failure:** session marked Stopped although worker alive; interrupted overwrites successful result; archived session still receives queued command.
+**Failure:** session marked Stopped although worker alive. Interrupted overwrites successful result. Archived session still receives queued command.
 
 **Fix:** separate conversation, process, turn and operation state machines. Derived session availability. Stop fences queue, cancel waits for evidence, archive refuses unknown work, resume requires reconciliation. Never infer turn success from process exit.
 
@@ -119,7 +119,7 @@ Severity: **P0** = release-blocking architectural correctness/security risk; **P
 
 **Failure:** runaway recursion, context loops and uncontrolled spend within the service.
 
-**Fix:** daemon-issued scoped delegation references and atomic reservation counters tied to real parent/task lineage; increment accounting before native spawn. Same-user processes can launch providers directly outside the daemon, so quotas are not OS-wide security controls.
+**Fix:** daemon-issued scoped delegation references and atomic reservation counters tied to real parent/task lineage. Increment accounting before native spawn. Same-user processes can launch providers directly outside the daemon, so quotas are not OS-wide security controls.
 
 **Proof required:** ADV-020, ACC-012 and authorization tests.
 
@@ -129,7 +129,7 @@ Severity: **P0** = release-blocking architectural correctness/security risk; **P
 
 **Failure:** DKSTACK review/merge/release policy bypass without calling a forbidden orchestrator method.
 
-**Fix:** state this unfixable limit under same-user unsandboxed execution. Avoid providing powerful credentials to workers; use OS separation/sandbox or GitHub App identity for true enforcement. No claim that 'API does not expose merge' proves that agents cannot merge.
+**Fix:** state this unfixable limit under same-user unsandboxed execution. Avoid providing powerful credentials to workers. Use OS separation/sandbox or GitHub App identity for true enforcement. No claim that 'API does not expose merge' proves that agents cannot merge.
 
 **Proof required:** ADV-023 and explicit threat-model review. **Residual:** high until credential separation is deployed.
 
@@ -220,9 +220,9 @@ Repaired:
 ## Changes to the documents
 
 - **SPEC.md:** 13 added FRs (`FR-064`..`FR-076`), corrected FR-010..FR-063, delivery semantics, release gate, quality thresholds, trust boundary.
-- **ARCHITECTURE.md:** orthogonal lifecycle model; fenced per-session dispatcher; delivery unknown; credential/permission callbacks; crash recovery; SQLite/blob protocol; plan-only workspace deletion; ACP/MCP negotiation specifics.
-- **VERIFICATION.md:** 24 adversarial scenarios and revised existing acceptance tests; move safety essentials to M1; separate real host/worker tests; explicitly forbid inferred compatibility passes.
-- **tests/test_reference_model.py:** deliberately unsafe scheduler and corrected reference scheduler; automated counterexamples and invariant tests. Test suite success means the DESIGN MODEL behaves as expected, not that .NET or provider executables are safe.
+- **ARCHITECTURE.md:** orthogonal lifecycle model. Fenced per-session dispatcher. Delivery unknown. Credential/permission callbacks. Crash recovery. SQLite/blob protocol. Plan-only workspace deletion. ACP/MCP negotiation specifics.
+- **VERIFICATION.md:** 24 adversarial scenarios and revised existing acceptance tests. Move safety essentials to M1. Separate real host/worker tests. Explicitly forbid inferred compatibility passes.
+- **tests/test_reference_model.py:** deliberately unsafe scheduler and corrected reference scheduler. Automated counterexamples and invariant tests. Test suite success means the DESIGN MODEL behaves as expected, not that .NET or provider executables are safe.
 
 ## Verification performed / not performed
 
@@ -243,17 +243,17 @@ Repaired:
 
 1. **Same-user trust remains fundamental.** OS-user authentication does not distinguish individual agents. A worker with arbitrary access can use the user's credentials outside the daemon. This needs OS identity separation and credential isolation, not a lease tweak.
 2. **Exactly-once native provider execution is impossible to promise generally.** Unknown outcomes sometimes require human resolution. This is a safer outcome than blind retry.
-3. **Uninterrupted running turns across daemon crashes are impossible to promise generally.** Some OS process policies kill workers; others leave orphans. Durable conversation restore is provider-specific.
-4. **A writable process is not made read-only by a worktree.** Enforced security depends on an actual tested sandbox; worktree only separates Git modifications.
+3. **Uninterrupted running turns across daemon crashes are impossible to promise generally.** Some OS process policies kill workers. Others leave orphans. Durable conversation restore is provider-specific.
+4. **A writable process is not made read-only by a worktree.** Enforced security depends on an actual tested sandbox. Worktree only separates Git modifications.
 5. **Four-vendor support and full OS parity remain unproven.** Ship only tested provider/host combinations, documenting unsupported/not-run cases, or delay the release.
 6. **No performance or memory benchmarks exist.** The runtime is I/O-bound, but capacity and resource budgets require measurement.
-7. **Plan-only deletion trades convenience for correctness.** Full automated workspace cleanup should be a separately designed future feature after filesystem race tests.
+7. **Plan-only deletion trades convenience for correctness.** Full automated workspace cleanup is a separate future feature. Design it after filesystem race tests.
 
 ## Implementation stop/go criteria
 
-Do not start the full adapter feature matrix until a small .NET proof demonstrates: (a) one durable daemon with a fake agent, (b) fenced dispatch on control change, (c) uncertain native effect handling, (d) no automatic workspace deletion, and (e) default-denied native client callbacks. Then validate Codex and Claude; only afterward add ACP providers.
+Do not start the full adapter feature matrix before a small .NET proof. The proof demonstrates: (a) one durable daemon with a fake agent, (b) fenced dispatch on control change and (c) uncertain native effect handling. It also demonstrates (d) no automatic workspace deletion and (e) default-denied native client callbacks. Then validate Codex and Claude. Only afterward add ACP providers.
 
-Do not claim stable v1 until all P0 platform/provider cells have actual evidence. A capability known not to be supported is acceptable only when its corresponding behavior is clearly conditional and the public API returns UNSUPPORTED rather than a fabricated success.
+Do not claim stable v1 until all P0 platform/provider cells have actual evidence. A capability known not to be supported is acceptable only when its behavior is clearly conditional. The public API must then return UNSUPPORTED rather than a fabricated success.
 
 ## Independent source checks
 

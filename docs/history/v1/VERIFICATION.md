@@ -1,14 +1,14 @@
 # Agent Orchestrator v1 - Validation and Delivery Plan
 
-Status: proposed test and rollout plan; no tests executed
+Status: proposed test and rollout plan. No tests executed
 Date: 2026-11-26
 Companions: [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## 1. Principle
 
-Validate observable behavior, not an agent's claim that it worked. A fake provider proves protocol state machines; a real provider proves compatibility with that provider/version. CI checks run without requiring paid model calls, while optional live-provider smoke tests run explicitly on a configured authenticated test machine.
+Validate observable behavior, not an agent's claim that it worked. A fake provider proves protocol state machines. A real provider proves compatibility with that provider/version. CI checks run without requiring paid model calls, while optional live-provider smoke tests run explicitly on a configured authenticated test machine.
 
-Every acceptance result records: test ID, implementation revision, provider binary/version, operating system/architecture, protocol version/capabilities, input fixture, observed events, outcome, and NOT RUN when evidence is absent.
+Every acceptance result records: test ID, implementation revision, provider binary/version, operating system/architecture and protocol version/capabilities. It also records input fixture, observed events, outcome, and NOT RUN when evidence is absent.
 
 ## 2. Proof layers
 
@@ -28,11 +28,11 @@ Every acceptance result records: test ID, implementation revision, provider bina
 - Establish target CLI versions and supported OSes with `--version`, `--help` and documented protocol initialization.
 - Codex App Server: initialize/initialized, thread/start, turn/start, event stream, turn/steer, turn/interrupt, thread/resume.
 - Claude Code: structured stream, session ID capture and `--resume`, explicit result/error types, cancellation. Attempt streaming input/steering only after validating CLI semantics.
-- Grok: ACP v1 initialize/session/new/session/prompt/session/cancel and capability flags; no always-approve flags.
+- Grok: ACP v1 initialize/session/new/session/prompt/session/cancel and capability flags. No always-approve flags.
 - Antigravity: ACP v1 initialize/session/new/session/prompt/session/cancel and capability flags, including platform differences.
-- If a community ACP .NET SDK fails compatibility or uses unstable APIs, implement a bounded ACP v1 client with System.Text.Json, explicit JSON-RPC correlation and stdio lifecycle.
+- A community ACP .NET SDK can fail compatibility or use unstable APIs. Then implement a bounded ACP v1 client with System.Text.Json, explicit JSON-RPC correlation and stdio lifecycle.
 
-Exit: each adapter has a real-provider compatibility note and a deterministic fake provider contract harness. Actual provider access may be missing in the current environment; record NOT RUN rather than assume success.
+Exit: each adapter has a real-provider compatibility note and a deterministic fake provider contract harness. Actual provider access may be missing in the current environment. Record NOT RUN rather than assume success.
 
 ### M1 - Persistent control plane
 
@@ -58,7 +58,7 @@ Exit: host/worker capability matrix published with success/unsupported/not-run s
 - Operation idempotency, outbox reconciliation, database migrations and event gap detection.
 - Concurrent session stress tests, permission and secret-handling tests, recovery simulation.
 
-Exit: no known data loss or unsafe destructive cleanup; security claims state actual enforcement level.
+Exit: no known data loss or unsafe destructive cleanup. Security claims state actual enforcement level.
 
 ### M4 - v1 release readiness
 
@@ -66,7 +66,7 @@ Exit: no known data loss or unsafe destructive cleanup; security claims state ac
 - Linux/Windows/macOS release artifacts, smoke tests on native target OSes.
 - Compatibility table, diagnostics, known limitations, release notes, reproducible build inputs and signed artifacts where configured.
 
-Exit: all P0 requirements met or explicitly capability-conditional; no skipped failing tests; NOT RUN entries are release blockers when they cover a P0 target environment.
+Exit: all P0 requirements met or explicitly capability-conditional. No skipped failing tests. NOT RUN entries are release blockers when they cover a P0 target environment.
 
 ## 4. Acceptance scenarios
 
@@ -128,8 +128,8 @@ Exit: all P0 requirements met or explicitly capability-conditional; no skipped f
 - PLAT-004: macOS x64: Unix socket, process-group and native release smoke.
 - PLAT-005: macOS ARM64: same as PLAT-004.
 - PLAT-006: Validate provider binaries only where those providers actually support the OS. Missing installed provider is NOT RUN, not pass.
-- PERF-001: 20 deterministic fake concurrent agents for 30 minutes; stable bounded queue and no lost required events.
-- PERF-002: Measure cold start, idle RSS, peak RSS, event ingest throughput, shutdown time and disk growth on each platform; set release budgets only after pilot data.
+- PERF-001: 20 deterministic fake concurrent agents for 30 minutes. Stable bounded queue and no lost required events.
+- PERF-002: Measure cold start, idle RSS, peak RSS, event ingest throughput, shutdown time and disk growth on each platform. Set release budgets only after pilot data.
 
 ## 5. Provider matrix format
 
@@ -142,31 +142,31 @@ Each cell must be measured and labeled `PASS`, `FAIL`, `UNSUPPORTED` or `NOT RUN
 | Grok | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 | Antigravity | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 
-For every tested cell, record: OS, CLI version, authentication mode (not token), MCP registration, adapter protocol, capability flags, spawn, send, read, cancel, stop, resume availability, elapsed time and full test evidence. Initial simulated-provider and unit tests do not replace real-provider smoke tests.
+For every tested cell, record: OS, CLI version, authentication mode (not token), MCP registration, adapter protocol and capability flags. Also record spawn, send, read, cancel, stop, resume availability, elapsed time and full test evidence. Initial simulated-provider and unit tests do not replace real-provider smoke tests.
 
 ## 6. Test fixture inventory
 
 Use deterministic fake agent executables and protocol servers with modes:
 
 - `normal`: accepts request, emits started/delta/tool/completed events.
-- `slow`: emits progress with configurable delays; accepts cancel.
+- `slow`: emits progress with configurable delays. Accepts cancel.
 - `hung`: blocks without output to test timeout and forced termination.
 - `partial`: writes truncated NDJSON/JSON-RPC frames.
 - `malformed`: wrong JSON types/invalid Unicode/bogus IDs/invalid response correlation.
 - `double-ack`: duplicate provider replies and out-of-order notifications.
 - `crash-before-ack`, `crash-after-ack`, `resume-fail`.
-- `prompt-for-permission`: requires explicit decision; tests fail-closed behavior.
+- `prompt-for-permission`: requires explicit decision. Tests fail-closed behavior.
 - `spawn-descendants`: child/grandchild lifetime and inherited handles.
 - `large-output`: bounded memory/event spool.
 - `mutate-workspace`: dirty/untracked/symlink/traversal cleanup tests.
 
-Use fake time for leases, budgets, and expiries; no network/model calls in ordinary CI.
+Use fake time for leases, budgets, and expiries. No network/model calls in ordinary CI.
 
 ## 7. DKSTACK and Factory integration gates
 
 - DKSTACK integration may add a delegation skill or guidelines later, but must not alter core runtime identity, message delivery, or authorization semantics.
-- Review role must receive exact base/head SHA and independent context; provider-generated approvals remain advisory. DKSTACK's independent-review and owner-only safety requirements still apply.
-- Factory integration starts only after stable runtime release; its verification engine must independently run required checks and must not trust worker claims of passed tests.
+- Review role must receive exact base/head SHA and independent context. Provider-generated approvals remain advisory. DKSTACK's independent-review and owner-only safety requirements still apply.
+- Factory integration starts only after stable runtime release. Its verification engine must independently run required checks and must not trust worker claims of passed tests.
 - No integration may enable automatic GitHub merge, release or secret access merely because runtime execution succeeded.
 
 ## 8. Explicit limitations

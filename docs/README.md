@@ -4,4 +4,4 @@
 
 [Historical design revisions](history/README.md).
 
-Documentation is a proposal; real .NET agent sessions are **not implemented**. Follow [DKSTACK](../AGENTS.md) for implementation and review.
+Documentation is a proposal. Real .NET agent sessions are **not implemented**. Follow [DKSTACK](../AGENTS.md) for implementation and review.

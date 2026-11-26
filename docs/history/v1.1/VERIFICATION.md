@@ -1,14 +1,14 @@
 # Agent Orchestrator v1 - Validation and Delivery Plan
 
-Status: revised after adversarial review; no production runtime or real-provider tests executed
+Status: revised after adversarial review. No production runtime or real-provider tests executed
 Date: 2026-11-26
 Companions: [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), [RED_TEAM_REPORT.md](RED_TEAM_REPORT.md)
 
 ## 1. Principle
 
-Validate observable behavior, not an agent's claim that it worked. A fake provider proves protocol state machines; a real provider proves compatibility with that provider/version. CI checks run without requiring paid model calls, while optional live-provider smoke tests run explicitly on a configured authenticated test machine.
+Validate observable behavior, not an agent's claim that it worked. A fake provider proves protocol state machines. A real provider proves compatibility with that provider/version. CI checks run without requiring paid model calls, while optional live-provider smoke tests run explicitly on a configured authenticated test machine.
 
-Every acceptance result records: test ID, implementation revision, provider binary/version, operating system/architecture, protocol version/capabilities, input fixture, observed events, outcome, and NOT RUN when evidence is absent. For native external side effects, UNKNOWN is distinct from FAIL and PASS. Negative tests must prove a native provider was NOT contacted after rejection, using a fake provider call counter.
+Every acceptance result records: test ID, implementation revision, provider binary/version, operating system/architecture and protocol version/capabilities. It also records input fixture, observed events, outcome, and NOT RUN when evidence is absent. For native external side effects, UNKNOWN is distinct from FAIL and PASS. Negative tests must prove a native provider was NOT contacted after rejection, using a fake provider call counter.
 
 ## 2. Proof layers
 
@@ -28,18 +28,18 @@ Every acceptance result records: test ID, implementation revision, provider bina
 - Establish target CLI versions and supported OSes with `--version`, `--help` and documented protocol initialization.
 - Codex App Server: initialize/initialized, thread/start, turn/start, event stream, turn/steer, turn/interrupt, thread/resume.
 - Claude Code: structured stream, session ID capture and `--resume`, explicit result/error types, cancellation. Attempt streaming input/steering only after validating CLI semantics.
-- Grok: ACP v1 initialize/session/new/session/prompt/session/cancel and capability flags; no always-approve flags.
+- Grok: ACP v1 initialize/session/new/session/prompt/session/cancel and capability flags. No always-approve flags.
 - Antigravity: ACP v1 initialize/session/new/session/prompt/session/cancel and capability flags, including platform differences.
-- If a community ACP .NET SDK fails compatibility or uses unstable APIs, implement a bounded ACP v1 client with System.Text.Json, explicit JSON-RPC correlation and stdio lifecycle.
+- A community ACP .NET SDK can fail compatibility or use unstable APIs. Then implement a bounded ACP v1 client with System.Text.Json, explicit JSON-RPC correlation and stdio lifecycle.
 
-Exit: each adapter has a deterministic contract harness and a provider compatibility record. Real-provider calls that could not be executed remain NOT RUN; a v1 release claiming that provider is blocked until target cells pass.
+Exit: each adapter has a deterministic contract harness and a provider compatibility record. Real-provider calls that could not be executed remain NOT RUN. A v1 release claiming that provider is blocked until target cells pass.
 
 ### M1 - Persistent control plane
 
 - .NET daemon and short-lived MCP stdio bridge with local IPC handshake.
 - `session_start`, `session_get`, `session_events`, `session_send`, `session_stop`, `operation_get` with sqlite persistence.
 - Two real adapters: Codex and Claude.
-- Include lease epoch fencing, uncertain-delivery handling, default-denied client-side callbacks, and stop-queue invalidation BEFORE enabling mutating workers; do not postpone these to M3.
+- Include lease epoch fencing, uncertain-delivery handling, default-denied client-side callbacks, and stop-queue invalidation BEFORE enabling mutating workers. Do not postpone these to M3.
 - Reject new dispatch on journal failure or unknown provider state.
 - One simulated lead crash and MCP bridge crash: sessions continue under daemon.
 
@@ -51,7 +51,7 @@ Exit: Claude -> Codex and Codex -> Claude scenarios pass, including crash-after-
 - Implement `session_steer` capability negotiation, cancel/resume/archive, and resource limits.
 - Prove all four hosts can invoke MCP where supported, and all four workers can run as supervised sessions.
 
-Exit: host/worker capability matrix published with success/unsupported/not-run states and versioned evidence. Host MCP support is measured separately from worker ACP/native support; native provider support is not inferred from docs alone.
+Exit: host/worker capability matrix published with success/unsupported/not-run states and versioned evidence. Host MCP support is measured separately from worker ACP/native support. Native provider support is not inferred from docs alone.
 
 ### M3 - Hardening
 
@@ -60,7 +60,7 @@ Exit: host/worker capability matrix published with success/unsupported/not-run s
 - Operation idempotency, outbox reconciliation, database migrations and event gap detection.
 - Concurrent session stress tests, permission and secret-handling tests, recovery simulation.
 
-Exit: no known silent loss of committed audit/state events under supported storage conditions; uncertain external effects and incomplete evidence are explicitly reported. No daemon automatic workspace deletion exists; security claims state actual enforcement level.
+Exit: no known silent loss of committed audit/state events under supported storage conditions. Uncertain external effects and incomplete evidence are explicitly reported. No daemon automatic workspace deletion exists. Security claims state actual enforcement level.
 
 ### M4 - v1 release readiness
 
@@ -68,7 +68,7 @@ Exit: no known silent loss of committed audit/state events under supported stora
 - Linux/Windows/macOS release artifacts, smoke tests on native target OSes.
 - Compatibility table, diagnostics, known limitations, release notes, reproducible build inputs and signed artifacts where configured.
 
-Exit: all P0 safety invariants pass on each release target, all advertised host/worker combinations have real evidence, and unavailable capabilities are explicitly UNSUPPORTED. No skipped failing tests; P0 NOT RUN entries block claiming a platform/provider. No claim of complete crash-time transcripts or OS sandboxing without evidence.
+Exit: all P0 safety invariants pass on each release target, all advertised host/worker combinations have real evidence, and unavailable capabilities are explicitly UNSUPPORTED. No skipped failing tests. P0 NOT RUN entries block claiming a platform/provider. No claim of complete crash-time transcripts or OS sandboxing without evidence.
 
 ## 4. Acceptance scenarios
 
@@ -131,8 +131,8 @@ Exit: all P0 safety invariants pass on each release target, all advertised host/
 - PLAT-004: macOS x64: Unix socket, process-group and native release smoke.
 - PLAT-005: macOS ARM64: same as PLAT-004.
 - PLAT-006: Validate provider binaries only where those providers actually support the OS. Missing installed provider is NOT RUN, not pass.
-- PERF-001: 20 deterministic fake concurrent agents for 30 minutes; stable bounded queue and no lost required events.
-- PERF-002: Measure cold start, idle RSS, peak RSS, event ingest throughput, shutdown time and disk growth on each platform; set release budgets only after pilot data.
+- PERF-001: 20 deterministic fake concurrent agents for 30 minutes. Stable bounded queue and no lost required events.
+- PERF-002: Measure cold start, idle RSS, peak RSS, event ingest throughput, shutdown time and disk growth on each platform. Set release budgets only after pilot data.
 
 ## 4A. Release-blocking adversarial tests (added)
 
@@ -165,7 +165,7 @@ Every test below uses an injected scheduling point, a recorded command sequence 
 | ADV-023 | Publisher-like GitHub credential exists in worker environment | No claim that orchestrator can enforce owner-only operations outside its API; require credential isolation for such claims | FR-055 |
 | ADV-024 | All four hosts/workers matrix on each supported OS | PASS only when actually tested, UNSUPPORTED and NOT RUN not successes | FR-074 |
 
-Minimum failure exploration: enumerate all short interleavings of lease transfer, queued steer, stop, cancel and dispatch; run randomized/property tests with fixed seeds; inject process/storage faults at each side-effect boundary. The included `tests/test_reference_model.py` models two representative races only; it is NOT a production implementation or provider test.
+Minimum failure exploration: enumerate all short interleavings of lease transfer, queued steer, stop, cancel and dispatch. Run randomized/property tests with fixed seeds. Inject process/storage faults at each side-effect boundary. The included `tests/test_reference_model.py` models two representative races only. It is NOT a production implementation or provider test.
 
 ## 5. Provider matrix format
 
@@ -178,36 +178,36 @@ Each cell must be measured and labeled `PASS`, `FAIL`, `UNSUPPORTED` or `NOT RUN
 | Grok | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 | Antigravity | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 
-For every tested cell, record: OS, CLI version/hash, authentication mode (not token), MCP registration, adapter protocol, negotiated capability flags, spawn, send, read, cancel, stop, resume availability, elapsed time, trace and full test evidence. Host MCP and worker compatibility are **separate** matrices. A provider protocol unsupported on a platform is UNSUPPORTED, never PASS; NOT RUN blocks claims about that target. Initial simulated-provider and unit tests do not replace real-provider smoke tests.
+For every tested cell, record: OS, CLI version/hash, authentication mode (not token), MCP registration, adapter protocol and negotiated capability flags. Also record spawn, send, read, cancel, stop, resume availability, elapsed time, trace and full test evidence. Host MCP and worker compatibility are **separate** matrices. A provider protocol unsupported on a platform is UNSUPPORTED, never PASS. NOT RUN blocks claims about that target. Initial simulated-provider and unit tests do not replace real-provider smoke tests.
 
 ## 6. Test fixture inventory
 
 Use deterministic fake agent executables and protocol servers with modes:
 
 - `normal`: accepts request, emits started/delta/tool/completed events.
-- `slow`: emits progress with configurable delays; accepts cancel.
+- `slow`: emits progress with configurable delays. Accepts cancel.
 - `hung`: blocks without output to test timeout and forced termination.
 - `partial`: writes truncated NDJSON/JSON-RPC frames.
 - `malformed`: wrong JSON types/invalid Unicode/bogus IDs/invalid response correlation.
 - `double-ack`: duplicate provider replies and out-of-order notifications.
 - `crash-before-ack`, `crash-after-ack`, `resume-fail`.
-- `prompt-for-permission`: requires explicit decision; tests fail-closed behavior.
+- `prompt-for-permission`: requires explicit decision. Tests fail-closed behavior.
 - `spawn-descendants`: child/grandchild lifetime and inherited handles.
 - `large-output`: bounded memory/event spool.
 - `mutate-workspace`: dirty/untracked/symlink/traversal cleanup tests.
 
-Use fake time for leases, budgets, and expiries; no network/model calls in ordinary CI.
+Use fake time for leases, budgets, and expiries. No network/model calls in ordinary CI.
 
 ## 7. DKSTACK and Factory integration gates
 
 - DKSTACK integration may add a delegation skill or guidelines later, but must not alter core runtime identity, message delivery, or authorization semantics.
-- Review role must receive exact base/head SHA and independent context; provider-generated approvals remain advisory. DKSTACK's independent-review and owner-only safety requirements still apply.
-- Factory integration starts only after stable runtime release; its verification engine must independently run required checks and must not trust worker claims of passed tests.
+- Review role must receive exact base/head SHA and independent context. Provider-generated approvals remain advisory. DKSTACK's independent-review and owner-only safety requirements still apply.
+- Factory integration starts only after stable runtime release. Its verification engine must independently run required checks and must not trust worker claims of passed tests.
 - No integration may enable automatic GitHub merge, release or secret access merely because runtime execution succeeded.
 
 ## 8. Explicit limitations
 
-No authenticated Claude/Codex/Grok/Antigravity calls have been executed for this design. Protocol support is based on published documentation. This revision includes a runnable **reference model** of control-plane invariants, not a native implementation; all live-provider compatibility and OS process-supervision claims remain NOT RUN until prototype testing. `EffectUnknown` is a legitimate terminal review state when external delivery cannot be established.
+No authenticated Claude/Codex/Grok/Antigravity calls have been executed for this design. Protocol support is based on published documentation. This revision includes a runnable **reference model** of control-plane invariants, not a native implementation. All live-provider compatibility and OS process-supervision claims remain NOT RUN until prototype testing. `EffectUnknown` is a legitimate terminal review state when external delivery cannot be established.
 
 ## 9. Useful upstream references
 
