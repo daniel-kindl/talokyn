@@ -109,27 +109,26 @@ public sealed partial class JsonRpcConnection
         using CancellationTokenSource timeout = new(_options.RequestTimeout, _timeProvider);
         using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
         PendingRequest pending = Register(method);
+
+        // The reply, the close, the timeout and the cancellation each try to remove the request
+        // from the pending set under the lock. Only the one that removes it sets the outcome.
+        using CancellationTokenRegistration registration = linked.Token.Register(() => Abandon(pending, cancellationToken));
         try
         {
             await WriteAsync(new JsonRpcRequest(pending.Id, method, parameters), linked.Token);
-            return await pending.Completion.Task.WaitAsync(linked.Token);
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            if (!Unregister(pending))
-            {
-                // The reply or the close won the race with the cancellation. Use its outcome.
-                return await pending.Completion.Task;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            throw new JsonRpcRequestTimeoutException(method, pending.Id, _options.RequestTimeout);
+            // The write stopped because of the timeout or the cancellation. Abandon sets the
+            // outcome, unless a reply or the close removed the request first.
         }
         catch
         {
             Unregister(pending);
             throw;
         }
+
+        return await pending.Completion.Task;
     }
 
     /// <summary>Sends a notification. The peer sends no reply.</summary>
@@ -186,6 +185,23 @@ public sealed partial class JsonRpcConnection
         }
     }
 
+    private void Abandon(PendingRequest pending, CancellationToken callerToken)
+    {
+        if (!Unregister(pending))
+        {
+            return;
+        }
+
+        if (callerToken.IsCancellationRequested)
+        {
+            pending.Completion.TrySetCanceled(callerToken);
+        }
+        else
+        {
+            pending.Completion.TrySetException(new JsonRpcRequestTimeoutException(pending.Method, pending.Id, _options.RequestTimeout));
+        }
+    }
+
     private bool Unregister(PendingRequest pending)
     {
         lock (_gate)
@@ -218,7 +234,11 @@ public sealed partial class JsonRpcConnection
 
     private void Drop(JsonRpcDropReason reason, JsonRpcId? id, string? method)
     {
-        LogMessageDropped(ConnectionId, reason, FormatIdForLog(id));
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            LogMessageDropped(ConnectionId, reason, FormatIdForLog(id));
+        }
+
         _options.MessageDropped?.Invoke(new JsonRpcDroppedMessage(reason, id, method));
     }
 
@@ -259,8 +279,9 @@ public sealed partial class JsonRpcConnection
         }
     }
 
-    // A text ID comes from the peer. Escape control characters and cap the length, so that the
-    // log cannot be injected or flooded.
+    // A text ID comes from the peer. Escape each control character and each surrogate as \uXXXX
+    // and cap the length, so that the log cannot be injected or flooded. The result is ASCII
+    // plus printable characters, and the escape never throws, even for a lone surrogate.
     private static string? FormatIdForLog(JsonRpcId? id)
     {
         if (id is not JsonRpcId value)
@@ -273,19 +294,33 @@ public sealed partial class JsonRpcConnection
             return value.ToString();
         }
 
-        // Shorten before the escape, so that a long ID costs nothing, and after it, because an
-        // escape makes the text longer.
-        string escaped = JsonEncodedText.Encode(text.Length > MaxLoggedIdLength ? text[..MaxLoggedIdLength] : text).ToString();
-        return text.Length > MaxLoggedIdLength || escaped.Length > MaxLoggedIdLength
-            ? escaped[..Math.Min(escaped.Length, MaxLoggedIdLength)] + "..."
-            : escaped;
+        System.Text.StringBuilder escaped = new(MaxLoggedIdLength + 8);
+        foreach (char c in text)
+        {
+            if (escaped.Length >= MaxLoggedIdLength)
+            {
+                return escaped.Append("...").ToString();
+            }
+
+            if (char.IsControl(c) || char.IsSurrogate(c) || c is '"' or '\\')
+            {
+                escaped.Append(System.Globalization.CultureInfo.InvariantCulture, $"\\u{(int)c:x4}");
+            }
+            else
+            {
+                escaped.Append(c);
+            }
+        }
+
+        return escaped.ToString();
     }
 
     [LoggerMessage(
         EventId = 1,
         EventName = "JsonRpcMessageDropped",
         Level = LogLevel.Debug,
-        Message = "Connection {ConnectionId} dropped a message: {Reason}, response ID {ResponseId}.")]
+        Message = "Connection {ConnectionId} dropped a message: {Reason}, response ID {ResponseId}.",
+        SkipEnabledCheck = true)]
     private partial void LogMessageDropped(string connectionId, JsonRpcDropReason reason, string? responseId);
 
     private sealed class PendingRequest(JsonRpcId id, string method)

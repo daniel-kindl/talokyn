@@ -11,7 +11,8 @@ public sealed class JsonRpcConnectionTests : IDisposable
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
-    // A broken behavior must fail the test, not hang it.
+    // A broken behavior must fail the test, not hang it. Each wait, also on a call or a run,
+    // goes through the guard token.
     private static readonly TimeSpan Guard = TimeSpan.FromSeconds(10);
 
     private readonly CancellationTokenSource _guard = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
@@ -51,12 +52,12 @@ public sealed class JsonRpcConnectionTests : IDisposable
 
         for (int i = 0; i < calls.Length; i++)
         {
-            JsonElement result = await calls[i];
+            JsonElement result = await calls[i].WaitAsync(_cancellationToken);
             Assert.Equal(requests[i].Id.ToString(), result.GetProperty("id").GetString());
         }
 
         _peer.Close();
-        await run;
+        await run.WaitAsync(_cancellationToken);
     }
 
     [Fact]
@@ -87,7 +88,7 @@ public sealed class JsonRpcConnectionTests : IDisposable
         JsonRpcRequest request = await _peer.ReadRequestAsync(_cancellationToken);
         await _peer.Writer.WriteAsync(new JsonRpcErrorResponse(request.Id, new JsonRpcError(-32602, "bad params", null)), _cancellationToken);
 
-        JsonRpcRemoteException exception = await Assert.ThrowsAsync<JsonRpcRemoteException>(() => call);
+        JsonRpcRemoteException exception = await Assert.ThrowsAsync<JsonRpcRemoteException>(() => call.WaitAsync(_cancellationToken));
         Assert.Equal(-32602, exception.Error.Code);
         Assert.Equal("thread/resume", exception.Method);
     }
@@ -120,7 +121,7 @@ public sealed class JsonRpcConnectionTests : IDisposable
         await ReplyAsync(request.Id, """{"n":1}""");
         await ReplyAsync(request.Id, """{"n":2}""");
 
-        Assert.Equal(1, (await call).GetProperty("n").GetInt32());
+        Assert.Equal(1, (await call.WaitAsync(_cancellationToken)).GetProperty("n").GetInt32());
         Assert.Equal(new JsonRpcDroppedMessage(JsonRpcDropReason.DuplicateResponse, request.Id, null), await NextDropAsync());
         await AssertStillServesRequestsAsync(connection);
         Assert.False(run.IsCompleted);
@@ -170,7 +171,7 @@ public sealed class JsonRpcConnectionTests : IDisposable
         await _peer.Writer.WriteAsync(new JsonRpcNotification("event/2", null), _cancellationToken);
         await ReplyAsync(request.Id, "{}");
 
-        await call;
+        await call.WaitAsync(_cancellationToken);
         Assert.Equal(["event/1", "event/2"], seen);
     }
 
@@ -203,7 +204,7 @@ public sealed class JsonRpcConnectionTests : IDisposable
 
         _time.Advance(TimeSpan.FromTicks(1));
 
-        JsonRpcRequestTimeoutException exception = await Assert.ThrowsAsync<JsonRpcRequestTimeoutException>(() => call);
+        JsonRpcRequestTimeoutException exception = await Assert.ThrowsAsync<JsonRpcRequestTimeoutException>(() => call.WaitAsync(_cancellationToken));
         Assert.Equal(request.Id, exception.Id);
         Assert.Equal("turn/start", exception.Method);
 
@@ -222,7 +223,7 @@ public sealed class JsonRpcConnectionTests : IDisposable
         await Task.Delay(100, _cancellationToken);
         await ReplyAsync(request.Id, "{}");
 
-        await call;
+        await call.WaitAsync(_cancellationToken);
     }
 
     [Fact]
@@ -236,7 +237,7 @@ public sealed class JsonRpcConnectionTests : IDisposable
         JsonRpcRequest request = await _peer.ReadRequestAsync(_cancellationToken);
         await cancel.CancelAsync();
 
-        OperationCanceledException exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
+        OperationCanceledException exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call.WaitAsync(_cancellationToken));
         Assert.Equal(cancel.Token, exception.CancellationToken);
 
         await ReplyAsync(request.Id, "{}");
@@ -253,8 +254,8 @@ public sealed class JsonRpcConnectionTests : IDisposable
         await _peer.ReadRequestAsync(_cancellationToken);
         _peer.Close();
 
-        await run;
-        await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(() => call);
+        await run.WaitAsync(_cancellationToken);
+        await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(() => call.WaitAsync(_cancellationToken));
         await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(() => connection.SendRequestAsync("turn/start", null, _cancellationToken));
         await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(() => connection.SendNotificationAsync("x", null, _cancellationToken).AsTask());
     }
@@ -269,9 +270,9 @@ public sealed class JsonRpcConnectionTests : IDisposable
         await _peer.ReadRequestAsync(_cancellationToken);
         _peer.WriteRaw("not json\n");
 
-        JsonRpcProtocolException fault = await Assert.ThrowsAsync<JsonRpcProtocolException>(() => run);
+        JsonRpcProtocolException fault = await Assert.ThrowsAsync<JsonRpcProtocolException>(() => run.WaitAsync(_cancellationToken));
         Assert.Equal(JsonRpcFrameError.InvalidJson, fault.Error);
-        JsonRpcConnectionClosedException closed = await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(() => call);
+        JsonRpcConnectionClosedException closed = await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(() => call.WaitAsync(_cancellationToken));
         Assert.Same(fault, closed.InnerException);
     }
 
@@ -320,6 +321,79 @@ public sealed class JsonRpcConnectionTests : IDisposable
         Assert.True(id.Length <= 80, $"The logged ID has {id.Length} characters.");
     }
 
+    [Fact]
+    public async Task DropsATextIdThatHasAnEmojiAcrossTheLogLimit()
+    {
+        // Regression: the cut for the log split the surrogate pair, the escape threw, and the connection ended.
+        RecordingLogger logger = new();
+        JsonRpcConnection connection = Connect(logger: logger);
+        Task run = connection.RunAsync(_cancellationToken);
+        JsonRpcId id = JsonRpcId.FromText(new string('x', 63) + "\U0001F600");
+
+        await ReplyAsync(id, "{}");
+
+        Assert.Equal(new JsonRpcDroppedMessage(JsonRpcDropReason.UnknownResponseId, id, null), await NextDropAsync());
+        await AssertStillServesRequestsAsync(connection);
+        Assert.False(run.IsCompleted);
+        Assert.Single(logger.Events);
+    }
+
+    [Fact]
+    public async Task DropsATextIdThatHasAnEmojiAcrossTheLogLimitWithLoggingOff()
+    {
+        JsonRpcConnection connection = Connect();
+        Task run = connection.RunAsync(_cancellationToken);
+        JsonRpcId id = JsonRpcId.FromText(new string('x', 63) + "\U0001F600");
+
+        await ReplyAsync(id, "{}");
+
+        Assert.Equal(new JsonRpcDroppedMessage(JsonRpcDropReason.UnknownResponseId, id, null), await NextDropAsync());
+        await AssertStillServesRequestsAsync(connection);
+        Assert.False(run.IsCompleted);
+    }
+
+    [Fact]
+    public async Task KeepsAReplyThatArrivesBeforeTheTimeoutFires()
+    {
+        // The reply completes the request first. The timeout then fires before the caller resumes.
+        // The caller must get the result, and the late timeout must change nothing.
+        TimeSpan timeout = TimeSpan.FromHours(1);
+        JsonRpcConnection connection = Connect(
+            (notification, _) =>
+            {
+                _time.Advance(timeout);
+                return ValueTask.FromResult(true);
+            },
+            timeout);
+        _ = connection.RunAsync(_cancellationToken);
+
+        Task<JsonElement> call = connection.SendRequestAsync("turn/start", null, _cancellationToken);
+        JsonRpcRequest request = await _peer.ReadRequestAsync(_cancellationToken);
+        await ReplyAsync(request.Id, """{"ok":true}""");
+        await _peer.Writer.WriteAsync(new JsonRpcNotification("tick", null), _cancellationToken);
+
+        Assert.True((await call.WaitAsync(_cancellationToken)).GetProperty("ok").GetBoolean());
+    }
+
+    [Fact]
+    public async Task KeepsAReplyThatArrivesBeforeTheCallerCancels()
+    {
+        using CancellationTokenSource cancel = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
+        JsonRpcConnection connection = Connect(async (notification, _) =>
+        {
+            await cancel.CancelAsync();
+            return true;
+        });
+        _ = connection.RunAsync(_cancellationToken);
+
+        Task<JsonElement> call = connection.SendRequestAsync("turn/start", null, cancel.Token);
+        JsonRpcRequest request = await _peer.ReadRequestAsync(_cancellationToken);
+        await ReplyAsync(request.Id, """{"ok":true}""");
+        await _peer.Writer.WriteAsync(new JsonRpcNotification("tick", null), _cancellationToken);
+
+        Assert.True((await call.WaitAsync(_cancellationToken)).GetProperty("ok").GetBoolean());
+    }
+
     private JsonRpcConnection Connect(JsonRpcNotificationHandler? handler = null, TimeSpan? timeout = null, ILogger? logger = null) =>
         _peer.Connect(
             new JsonRpcConnectionOptions(timeout ?? Timeout, handler, dropped => _dropped.Writer.TryWrite(dropped)),
@@ -339,6 +413,6 @@ public sealed class JsonRpcConnectionTests : IDisposable
         Task<JsonElement> call = connection.SendRequestAsync("ping", null, _cancellationToken);
         JsonRpcRequest request = await _peer.ReadRequestAsync(_cancellationToken);
         await ReplyAsync(request.Id, """{"ok":true}""");
-        Assert.True((await call).GetProperty("ok").GetBoolean());
+        Assert.True((await call.WaitAsync(_cancellationToken)).GetProperty("ok").GetBoolean());
     }
 }
