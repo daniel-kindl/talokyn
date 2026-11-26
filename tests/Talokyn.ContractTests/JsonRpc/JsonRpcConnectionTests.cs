@@ -312,12 +312,13 @@ public sealed class JsonRpcConnectionTests : IDisposable
         JsonRpcConnection connection = Connect(logger: logger);
         _ = connection.RunAsync(_cancellationToken);
 
-        await ReplyAsync(JsonRpcId.FromText("a\r\nb" + new string('x', 500)), "{}");
+        // Line breaks, Unicode line and paragraph separators, a right-to-left override and an emoji.
+        await ReplyAsync(JsonRpcId.FromText("a\r\nb\u2028c\u2029d\u202Ee\U0001F600" + new string('x', 500)), "{}");
         await NextDropAsync();
 
         string id = Assert.IsType<string>(Assert.Single(logger.Events).Fields["ResponseId"]);
-        Assert.DoesNotContain('\r', id);
-        Assert.DoesNotContain('\n', id);
+        Assert.All(id, c => Assert.InRange(c, ' ', '~'));
+        Assert.StartsWith("a\\u000d\\u000ab\\u2028c\\u2029d\\u202ee\\ud83d\\ude00x", id, StringComparison.Ordinal);
         Assert.True(id.Length <= 80, $"The logged ID has {id.Length} characters.");
     }
 

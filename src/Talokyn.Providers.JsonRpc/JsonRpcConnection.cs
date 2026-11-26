@@ -279,9 +279,10 @@ public sealed partial class JsonRpcConnection
         }
     }
 
-    // A text ID comes from the peer. Escape each control character and each surrogate as \uXXXX
-    // and cap the length, so that the log cannot be injected or flooded. The result is ASCII
-    // plus printable characters, and the escape never throws, even for a lone surrogate.
+    // A text ID comes from the peer. Escape each character outside printable ASCII, and the quote
+    // and the backslash, as \uXXXX, and cap the length. So the log cannot be injected, flooded or
+    // shown differently from its content, for example with U+2028 or U+202E. The result is
+    // printable ASCII only, and the escape never throws, even for a lone surrogate.
     private static string? FormatIdForLog(JsonRpcId? id)
     {
         if (id is not JsonRpcId value)
@@ -302,7 +303,7 @@ public sealed partial class JsonRpcConnection
                 return escaped.Append("...").ToString();
             }
 
-            if (char.IsControl(c) || char.IsSurrogate(c) || c is '"' or '\\')
+            if (c is < ' ' or > '~' or '"' or '\\')
             {
                 escaped.Append(System.Globalization.CultureInfo.InvariantCulture, $"\\u{(int)c:x4}");
             }
