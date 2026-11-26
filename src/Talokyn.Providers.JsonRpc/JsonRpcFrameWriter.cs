@@ -41,7 +41,7 @@ public sealed class JsonRpcFrameWriter
                 $"A frame is longer than the limit of {_limits.MaxFrameBytes} bytes.");
         }
 
-        // The same check as the reader, so the writer never sends a frame that the peer rejects.
+        // The reader's syntax and depth check, so the writer never sends a frame that the reader rejects for its depth.
         JsonRpcMessageParser.CheckSyntaxAndDepth(buffer.WrittenSpan, _limits.MaxDepth);
 
         buffer.Write("\n"u8);
