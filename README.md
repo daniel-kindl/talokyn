@@ -17,32 +17,30 @@ The current audited design is **v1.2**:
 - [Adversarial red-team review](docs/design/RED_TEAM_REPORT.md)
 - [Historical designs](docs/history/README.md)
 
-The runtime is independent of [DKSTACK](https://github.com/daniel-kindl/dkstack) and [Factory](https://github.com/daniel-kindl/factory). DKSTACK supplies contributor/agent guidance; Factory may later consume Talokyn.
+The runtime is independent of [DKSTACK](https://github.com/daniel-kindl/dkstack) and [Factory](https://github.com/daniel-kindl/factory). DKSTACK supplies contributor/agent guidance. Factory may later consume Talokyn.
 
 ## Planned architecture
 
 - **Language:** C# 15, .NET 11
 - **Process model:** single-user persistent daemon, short-lived MCP bridge and CLI
-- **Agent adapters:** Codex App Server; Claude structured CLI; ACP v1 for compatible providers
+- **Agent adapters:** Codex App Server. Claude structured CLI. ACP v1 for compatible providers
 - **Persistence:** SQLite plus durable event/operation journal
-- **Targets:** Linux x64/ARM64, Windows x64, macOS x64/ARM64; Windows ARM64 later
+- **Targets:** Linux x64/ARM64, Windows x64, macOS x64/ARM64. Windows ARM64 later
 
 These are proposed contracts, not implemented features. See [SPEC.md](docs/design/SPEC.md) for conditional provider capabilities and safety limitations.
 
 ## Development
 
-Requires the .NET 11 SDK; JavaScript documentation checks use Node.js 24+.
+Requires the .NET 11 SDK. JavaScript documentation checks use Node.js 24+.
 
 ```sh
 dotnet restore Talokyn.slnx
 dotnet build Talokyn.slnx --no-restore -warnaserror
 dotnet format Talokyn.slnx --verify-no-changes --no-restore
 dotnet run --project tests/Talokyn.SmokeTests/Talokyn.SmokeTests.csproj --no-restore
-node scripts/check-consumer.mjs --tag v1.6.0
-node scripts/check-links.mjs
 ```
 
-These commands are intended to be run locally. The initial environment has no .NET SDK; **build, format, and smoke tests have NOT RUN**.
+[CONTRIBUTING.md](CONTRIBUTING.md) lists the documentation checks.
 
 There is no executable install or usage workflow yet. No releases have been published.
 
