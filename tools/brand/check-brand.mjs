@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { updateTokens } from "../scripts/generate-brand-tokens.mjs";
-const tokenUrl = new URL("../design/brand/tokens.json", import.meta.url);
-const assetsUrl = new URL("../assets/brand/", import.meta.url);
+import { updateTokens } from "./generate-brand-tokens.mjs";
+const tokenUrl = new URL("../../design/brand/tokens.json", import.meta.url);
+const assetsUrl = new URL("../../assets/brand/", import.meta.url);
 const data = JSON.parse(await readFile(tokenUrl, "utf8"));
 const get = (path) => path.split(".").reduce((node, part) => node[part], data);
 const resolve = (value) => typeof value === "string" && /^\{.+\}$/.test(value) ? resolve(get(value.slice(1,-1)).$value) : value;
@@ -22,7 +22,7 @@ const contrast = (a,b) => {
 let assertions = 0;
 const expect = (value,msg) => {assertions++;if(!value)throw new Error(msg)};
 await updateTokens(true);
-const css=await readFile(new URL("../design/brand/tokens.css", import.meta.url), "utf8");
+const css=await readFile(new URL("../../design/brand/tokens.css", import.meta.url), "utf8");
 expect(css.includes("--tk-action-primary-bg:"), "semantic CSS must use kebab-case token names");
 expect(css.includes("--tk-font-line-height-normal:"), "type token names must be kebab-case");
 const pairs=[

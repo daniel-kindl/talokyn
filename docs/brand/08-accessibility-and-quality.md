@@ -40,13 +40,13 @@ Check reduced motion, forced colors and screen readers when application UI exist
 
 ## Automated checks
 
-The [brand check](../../scripts/check-brand.mjs) validates token synchronization, contrast pairs and asset safety properties.
+The [brand check](../../tools/brand/check-brand.mjs) validates token synchronization, contrast pairs and asset safety properties.
 
 Run it using Node.js:
 
 ```sh
-node scripts/check-brand.mjs
-node scripts/generate-brand-tokens.mjs --check
+node tools/brand/check-brand.mjs
+node tools/brand/generate-brand-tokens.mjs --check
 ```
 
 The check is a safeguard, not a replacement for rendered inspection. More nuanced visual defects require a human review.

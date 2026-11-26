@@ -9,9 +9,9 @@
 `tokens.css` is generated from this JSON. Do not edit CSS tokens directly.
 
 ```sh
-node scripts/generate-brand-tokens.mjs
-node scripts/generate-brand-tokens.mjs --check
-node scripts/check-brand.mjs
+node tools/brand/generate-brand-tokens.mjs
+node tools/brand/generate-brand-tokens.mjs --check
+node tools/brand/check-brand.mjs
 ```
 
 These commands run from the repository root. They require Node.js 24 or later.

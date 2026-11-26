@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-const SOURCE = new URL("../design/brand/tokens.json", import.meta.url);
-const OUTPUT = new URL("../design/brand/tokens.css", import.meta.url);
+const SOURCE = new URL("../../design/brand/tokens.json", import.meta.url);
+const OUTPUT = new URL("../../design/brand/tokens.css", import.meta.url);
 
 export function buildCss(data){
   const out=["/* Generated from design/brand/tokens.json. Do not edit manually. */"];
@@ -35,7 +35,7 @@ export async function updateTokens(checkOnly = false) {
   if (checkOnly) {
     const current = await readFile(OUTPUT, "utf8");
     if (current !== expected) {
-      throw new Error("Brand CSS is out of date. Run node scripts/generate-brand-tokens.mjs");
+      throw new Error("Brand CSS is out of date. Run node tools/brand/generate-brand-tokens.mjs");
     }
   } else {
     await writeFile(OUTPUT, expected, "utf8");

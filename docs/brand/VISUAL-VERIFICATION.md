@@ -4,7 +4,7 @@ Status: pending full application-level verification.
 
 ## Vector assets
 
-The source SVGs were built on a fixed grid with flat fills. Their dimensions and basic safety properties are checked by `scripts/check-brand.mjs`.
+The source SVGs were built on a fixed grid with flat fills. Their dimensions and basic safety properties are checked by `tools/brand/check-brand.mjs`.
 
 The brand is proposed, not approved. Final UI adoption requires rendered checks in the target product.
 

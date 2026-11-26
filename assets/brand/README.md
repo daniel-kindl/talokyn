@@ -45,6 +45,6 @@ Icons use a 24-unit viewBox and 1.75-unit strokes.
 
 ## Quality
 
-Run `node scripts/check-brand.mjs` before editing or adding assets.
+Run `node tools/brand/check-brand.mjs` before editing or adding assets.
 
 Follow [logo rules](../../docs/brand/02-logo.md) and [visual quality guidance](../../docs/brand/08-accessibility-and-quality.md).
