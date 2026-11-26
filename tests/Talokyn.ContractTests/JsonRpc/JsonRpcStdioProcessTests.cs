@@ -80,6 +80,86 @@ public sealed class JsonRpcStdioProcessTests : IAsyncLifetime
         RecordedEvent warning = Assert.Single(_logger.Events, e => e.EventId.Name == "ProviderForcedTermination");
         Assert.Equal(LogLevel.Warning, warning.Level);
         Assert.Equal(process.ProcessId, warning.Fields["ProcessId"]);
+        Assert.Equal("GracePeriodExpired", warning.Fields["Reason"]);
+    }
+
+    [Fact]
+    public async Task DisposeTerminatesALiveChildAndLogsThatItWasDisposed()
+    {
+        JsonRpcStdioProcess process = Start("hung");
+
+        await process.DisposeAsync().AsTask().WaitAsync(_token);
+        JsonRpcStdioExit exit = await process.Exited.WaitAsync(_token);
+
+        Assert.True(exit.Forced);
+        RecordedEvent warning = Assert.Single(_logger.Events, e => e.EventId.Name == "ProviderForcedTermination");
+        Assert.Equal(LogLevel.Warning, warning.Level);
+        Assert.Equal("Disposed", warning.Fields["Reason"]);
+    }
+
+    [Fact]
+    public async Task RefusesASendAfterStopClosedTheInputWithATypedError()
+    {
+        TimeSpan step = TimeSpan.FromSeconds(5);
+        JsonRpcStdioProcess process = Start("hung", grace: step);
+
+        // StopAsync closes the input before it first waits. The hung child stays alive for the grace period.
+        Task<JsonRpcStdioExit> stop = process.StopAsync(_token);
+        JsonRpcConnectionClosedException request = await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(
+            () => process.Connection.SendRequestAsync("turn/start", null, _token).WaitAsync(_token));
+        JsonRpcConnectionClosedException notification = await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(
+            () => process.Connection.SendNotificationAsync("turn/interrupt", null, _token).AsTask().WaitAsync(_token));
+        JsonRpcStdioExit exit = await AdvanceUntilAsync(stop, step);
+
+        Assert.NotNull(request.InnerException);
+        Assert.NotNull(notification.InnerException);
+        Assert.True(exit.Forced);
+    }
+
+    [Fact]
+    public void RejectsInvalidSettingsBeforeItLaunchesTheChild()
+    {
+        // The executable does not exist. If the code launched the child first, it would throw a Win32Exception.
+        JsonRpcConnectionOptions zeroTimeout = new(TimeSpan.Zero);
+        JsonRpcConnectionOptions options = new(TimeSpan.FromSeconds(1));
+        TimeSpan grace = TimeSpan.FromSeconds(1);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => JsonRpcStdioProcess.Start(new JsonRpcStdioStartInfo("no-such-executable", [], grace, zeroTimeout), _time, _logger));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => JsonRpcStdioProcess.Start(new JsonRpcStdioStartInfo("no-such-executable", [], grace, options, new JsonRpcFrameLimits(0, 64)), _time, _logger));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => JsonRpcStdioProcess.Start(new JsonRpcStdioStartInfo("no-such-executable", [], grace, options, new JsonRpcFrameLimits(1024, 0)), _time, _logger));
+    }
+
+    [Fact]
+    public async Task ReleasesAChildThatAGrandchildKeepsTheirPipesOpenFor()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "The test uses /bin/sh.");
+        // The shell exits at once. Its background sleep inherits the pipes and outlives the guard.
+        JsonRpcStdioProcess process = StartExecutable("/bin/sh", ["-c", "sleep 40 & exit 0"]);
+
+        JsonRpcStdioExit exit = await AdvanceUntilAsync(process.Exited, TimeSpan.FromSeconds(5));
+        await process.DisposeAsync().AsTask().WaitAsync(_token);
+
+        Assert.Equal(0, exit.ExitCode);
+        Assert.False(exit.Forced);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => process.ConnectionCompleted.WaitAsync(_token));
+    }
+
+    [Fact]
+    public async Task KeepsReadingStderrPastTheCapSoThatTheChildDoesNotBlock()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "The test uses /bin/sh.");
+        // 300000 bytes are more than the cap of 64 KiB and more than a pipe buffer. A child that
+        // cannot write them all never exits.
+        JsonRpcStdioProcess process = StartExecutable("/bin/sh", ["-c", "head -c 300000 /dev/zero | tr '\\0' x >&2"]);
+
+        JsonRpcStdioExit exit = await process.StopAsync(_token);
+
+        Assert.Equal(0, exit.ExitCode);
+        Assert.False(exit.Forced);
+        Assert.Equal(64 * 1024, exit.Stderr.Length);
     }
 
     [Fact]
@@ -166,15 +246,19 @@ public sealed class JsonRpcStdioProcessTests : IAsyncLifetime
     [Fact]
     public async Task PassesEachArgumentAsOneItemWithoutAShell()
     {
-        // A shell would split this at "&&" and run the second command. The fake provider takes
-        // it as one unknown mode and exits with the usage code.
-        JsonRpcStdioProcess process = StartWith(["--mode", "normal && echo hacked"]);
+        // A shell, or a joined command line, would split this at the spaces and run the second
+        // command. The fake provider takes it as one unknown mode, exits with the usage code, and
+        // reports the arguments that it received.
+        const string Mode = "normal && echo \"hacked\" ; $HOME";
+        JsonRpcStdioProcess process = StartWith(["--mode", Mode]);
 
         await process.ConnectionCompleted.WaitAsync(_token);
         JsonRpcStdioExit exit = await process.StopAsync(_token);
 
         Assert.Equal(2, exit.ExitCode);
-        Assert.Contains("usage", exit.Stderr, StringComparison.Ordinal);
+        string report = exit.Stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[^1];
+        using JsonDocument document = JsonDocument.Parse(report);
+        Assert.Equal(["--mode", Mode], document.RootElement.GetProperty("received").EnumerateArray().Select(item => item.GetString()));
     }
 
     [Fact]
@@ -216,10 +300,13 @@ public sealed class JsonRpcStdioProcessTests : IAsyncLifetime
     private JsonRpcStdioProcess Start(string mode, TimeSpan? timeout = null, TimeSpan? grace = null) =>
         StartWith(["--mode", mode], timeout, grace);
 
-    private JsonRpcStdioProcess StartWith(string[] arguments, TimeSpan? timeout = null, TimeSpan? grace = null)
+    private JsonRpcStdioProcess StartWith(string[] arguments, TimeSpan? timeout = null, TimeSpan? grace = null) =>
+        StartExecutable(FakeProviderProcess.ExecutablePath, arguments, timeout, grace);
+
+    private JsonRpcStdioProcess StartExecutable(string executable, string[] arguments, TimeSpan? timeout = null, TimeSpan? grace = null)
     {
         JsonRpcStdioStartInfo startInfo = new(
-            FakeProviderProcess.ExecutablePath,
+            executable,
             arguments,
             grace ?? TimeSpan.FromSeconds(30),
             new JsonRpcConnectionOptions(timeout ?? TimeSpan.FromSeconds(30), null, dropped => _dropped.Writer.TryWrite(dropped)));

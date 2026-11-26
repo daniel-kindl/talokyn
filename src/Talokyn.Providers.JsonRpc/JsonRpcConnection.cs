@@ -273,9 +273,10 @@ public sealed partial class JsonRpcConnection
         {
             await _writer.WriteAsync(message, cancellationToken);
         }
-        catch (IOException exception)
+        catch (Exception exception) when (exception is IOException or ObjectDisposedException)
         {
-            // The peer closed its input, for example because the child exited.
+            // The peer closed its input, or the owner of the stream closed it, for example because
+            // the child exited or is stopping.
             throw new JsonRpcConnectionClosedException("The peer no longer reads from the connection.", exception);
         }
         finally

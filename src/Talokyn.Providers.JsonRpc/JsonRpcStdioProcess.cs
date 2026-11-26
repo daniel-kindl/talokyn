@@ -43,6 +43,10 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
 {
     private const int MaxStderrChars = 64 * 1024;
 
+    // After the child exits, a grandchild can still hold its pipes. Wait this long for the ends
+    // of stderr and of the connection, then go on without them.
+    private static readonly TimeSpan PipeDrainTimeout = TimeSpan.FromSeconds(2);
+
     private readonly Process _process;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger _logger;
@@ -50,7 +54,9 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
     private readonly string _executableName;
     private readonly long _startTimestamp;
     private readonly StringBuilder _stderr = new();
+    private readonly CancellationTokenSource _runCancellation = new();
     private int _forced;
+    private int _disposed;
 
     private JsonRpcStdioProcess(
         Process process,
@@ -77,8 +83,8 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
         LogStarted(_executableName, ProcessId);
 
         Task stderrDone = Task.Run(() => DrainStderrAsync(process.StandardError));
+        ConnectionCompleted = Task.Run(() => Connection.RunAsync(_runCancellation.Token));
         Exited = MonitorAsync(stderrDone);
-        ConnectionCompleted = Task.Run(() => Connection.RunAsync(CancellationToken.None));
     }
 
     /// <summary>The connection to the child.</summary>
@@ -93,6 +99,8 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
     /// <summary>
     /// Completes when the connection ends. It completes normally when the child closes its output
     /// between frames. It fails with the <see cref="JsonRpcProtocolException"/> when a frame is rejected.
+    /// It fails with an <see cref="OperationCanceledException"/> when the child exited, but a
+    /// grandchild still holds its output open after the pipe drain timeout of two seconds.
     /// </summary>
     public Task ConnectionCompleted { get; }
 
@@ -105,6 +113,16 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentException.ThrowIfNullOrEmpty(startInfo.Executable);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(startInfo.StopGracePeriod, TimeSpan.Zero);
+
+        // Check every setting before the child starts, so that a bad setting leaves no process behind.
+        ArgumentNullException.ThrowIfNull(startInfo.Arguments);
+        ArgumentNullException.ThrowIfNull(startInfo.Connection);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(startInfo.Connection.RequestTimeout, TimeSpan.Zero);
+        if (startInfo.Limits is JsonRpcFrameLimits limits)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(limits.MaxFrameBytes, 0);
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(limits.MaxDepth, 0);
+        }
 
         ProcessStartInfo processStartInfo = new(startInfo.Executable)
         {
@@ -141,27 +159,37 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
         }
         catch (OperationCanceledException) when (grace.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            Terminate();
+            Terminate("GracePeriodExpired");
         }
 
         return await Exited.WaitAsync(cancellationToken);
     }
 
-    /// <summary>Terminates a live child at once and releases the process.</summary>
+    /// <summary>Terminates a live child at once and releases the process. Calling it again does nothing.</summary>
     public async ValueTask DisposeAsync()
     {
-        Terminate();
-        await Exited;
-        try
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
         {
-            await ConnectionCompleted;
-        }
-        catch (Exception exception) when (exception is JsonRpcProtocolException or JsonRpcConnectionClosedException or IOException)
-        {
-            // The caller had the chance to see this failure in ConnectionCompleted.
+            return;
         }
 
-        _process.Dispose();
+        try
+        {
+            Terminate("Disposed");
+            await Exited;
+            await _runCancellation.CancelAsync();
+            await ConnectionCompleted;
+        }
+        catch (Exception)
+        {
+            // Dispose does not throw. The caller had the chance to see the failure of the
+            // connection in ConnectionCompleted.
+        }
+        finally
+        {
+            _process.Dispose();
+            _runCancellation.Dispose();
+        }
     }
 
     private void CloseInput()
@@ -176,7 +204,7 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
         }
     }
 
-    private void Terminate()
+    private void Terminate(string reason)
     {
         try
         {
@@ -186,7 +214,7 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
             }
 
             Interlocked.Exchange(ref _forced, 1);
-            LogForcedTermination(_executableName, ProcessId, (long)_gracePeriod.TotalMilliseconds);
+            LogForcedTermination(_executableName, ProcessId, reason);
             _process.Kill();
         }
         catch (InvalidOperationException)
@@ -199,7 +227,14 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
     {
         await Task.Yield();
         await _process.WaitForExitAsync(CancellationToken.None);
-        await stderrDone;
+
+        // A grandchild can keep the pipes open after the child exits. Do not wait for it for ever.
+        await WaitForAsync(stderrDone);
+        if (!await WaitForAsync(ConnectionCompleted))
+        {
+            await _runCancellation.CancelAsync();
+        }
+
         TimeSpan elapsed = _timeProvider.GetElapsedTime(_startTimestamp);
         LogExited(_executableName, ProcessId, _process.ExitCode, elapsed.TotalMilliseconds);
         string stderr;
@@ -209,6 +244,16 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
         }
 
         return new JsonRpcStdioExit(_process.ExitCode, Volatile.Read(ref _forced) == 1, elapsed, stderr);
+    }
+
+    // Returns true when the task completed, with any outcome, within the pipe drain timeout.
+    private async Task<bool> WaitForAsync(Task task)
+    {
+        using CancellationTokenSource timerCancellation = new();
+        Task timer = Task.Delay(PipeDrainTimeout, _timeProvider, timerCancellation.Token);
+        await Task.WhenAny(task, timer);
+        await timerCancellation.CancelAsync();
+        return task.IsCompleted;
     }
 
     // Read to the end, so that the child never blocks on a full pipe. Keep only the first part.
@@ -247,6 +292,6 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
         EventId = 12,
         EventName = "ProviderForcedTermination",
         Level = LogLevel.Warning,
-        Message = "Terminating provider {Executable} with process ID {ProcessId}, which did not exit within the grace period of {GraceMs} ms.")]
-    private partial void LogForcedTermination(string executable, int processId, long graceMs);
+        Message = "Terminating provider {Executable} with process ID {ProcessId}: {Reason}.")]
+    private partial void LogForcedTermination(string executable, int processId, string reason);
 }

@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 // A deterministic stand-in for a provider CLI. It never contacts a network or a model.
@@ -7,7 +8,11 @@ using System.Text.Json;
 string[] modes = ["normal", "slow", "hung", "partial", "malformed", "double-ack", "crash-before-ack", "crash-after-ack"];
 if (args is not ["--mode", string mode] || !modes.Contains(mode))
 {
+    // The received arguments are on stderr, as one JSON array, so that a test can prove that each
+    // argument arrived as one item.
+    string received = JsonSerializer.Serialize(args, new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
     Console.Error.WriteLine("usage: Talokyn.FakeProvider --mode <normal|slow|hung|partial|malformed|double-ack|crash-before-ack|crash-after-ack>");
+    Console.Error.WriteLine($$"""{"received":{{received}}}""");
     return 2;
 }
 
