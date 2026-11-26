@@ -8,7 +8,7 @@ const tokenUrl = new URL("../design/brand/tokens.json", import.meta.url);
 const assetsUrl = new URL("../assets/brand/", import.meta.url);
 const data = JSON.parse(await readFile(tokenUrl, "utf8"));
 const get = (path) => path.split(".").reduce((node, part) => node[part], data);
-const resolve = (value) => typeof value === "string" && /^\\{.+\\}$/.test(value) ? resolve(get(value.slice(1,-1)).$value) : value;
+const resolve = (value) => typeof value === "string" && /^\{.+\}$/.test(value) ? resolve(get(value.slice(1,-1)).$value) : value;
 const relativeLuminance = (hex) => {
   const rgb = [1,3,5].map((i) => parseInt(hex.slice(i,i+2), 16) / 255);
   const corrected = rgb.map((n) => n <= 0.04045 ? n/12.92 : Math.pow((n + .055) / 1.055, 2.4));
@@ -46,8 +46,8 @@ for(const category of ["logo","banners","patterns","icons"]){
   for(const file of files){
     const xml=await readFile(join(directory,file),"utf8");
     expect(xml.includes("<svg ") && /viewBox="0 0 [0-9]+ [0-9]+"/.test(xml),file+" lacks SVG viewBox");
-    expect(!/<script\\b|<foreignObject\\b|onload=|<image\\b|href="https?:/i.test(xml),file+" has executable/external content");
-    expect(/<title>.+<\\/title>/.test(xml),file+" lacks accessible title");
+    expect(!/<script\b|<foreignObject\b|onload=|<image\b|href="https?:/i.test(xml),file+" has executable/external content");
+    expect(/<title>.+<\/title>/.test(xml),file+" lacks accessible title");
   }
 }
 console.log("Brand checks passed ("+assertions+" assertions).");
