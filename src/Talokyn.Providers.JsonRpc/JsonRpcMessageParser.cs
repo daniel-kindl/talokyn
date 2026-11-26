@@ -34,7 +34,7 @@ internal static class JsonRpcMessageParser
         }
     }
 
-    private static void CheckSyntaxAndDepth(ReadOnlySpan<byte> frame, int maxDepth)
+    internal static void CheckSyntaxAndDepth(ReadOnlySpan<byte> frame, int maxDepth)
     {
         // The reader allows one more level than the limit, so that this check reports the depth.
         Utf8JsonReader reader = new(frame, new JsonReaderOptions { MaxDepth = maxDepth + 1 });

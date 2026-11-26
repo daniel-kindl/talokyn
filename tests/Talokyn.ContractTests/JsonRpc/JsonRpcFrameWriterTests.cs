@@ -57,6 +57,55 @@ public sealed class JsonRpcFrameWriterTests
         Assert.Equal(0, stream.Length);
     }
 
+    [Fact]
+    public async Task RefusesAFrameDeeperThanTheLimit()
+    {
+        // The message object is depth 1, so params at depth 2 and two arrays reach depth 4.
+        using JsonDocument parameters = JsonDocument.Parse("""{"a":[[1]]}""");
+        MemoryStream stream = new();
+        JsonRpcFrameWriter writer = new(stream, new JsonRpcFrameLimits(MaxFrameBytes: 1024, MaxDepth: 3));
+
+        JsonRpcProtocolException exception = await Assert.ThrowsAsync<JsonRpcProtocolException>(
+            async () => await writer.WriteAsync(new JsonRpcNotification("m", parameters.RootElement), TestContext.Current.CancellationToken));
+
+        Assert.Equal(JsonRpcFrameError.DepthExceeded, exception.Error);
+        Assert.Equal(0, stream.Length);
+    }
+
+    [Fact]
+    public async Task WritesAFrameAtTheDepthLimit()
+    {
+        using JsonDocument parameters = JsonDocument.Parse("""{"a":[[1]]}""");
+        MemoryStream stream = new();
+        JsonRpcFrameWriter writer = new(stream, new JsonRpcFrameLimits(MaxFrameBytes: 1024, MaxDepth: 4));
+
+        await writer.WriteAsync(new JsonRpcNotification("m", parameters.RootElement), TestContext.Current.CancellationToken);
+
+        Assert.True(stream.Length > 0);
+    }
+
+    [Fact]
+    public async Task RefusesAnEmptyId()
+    {
+        MemoryStream stream = new();
+        JsonRpcFrameWriter writer = new(stream, JsonRpcFrameLimits.Default);
+        using JsonDocument result = JsonDocument.Parse("1");
+        JsonRpcMessage[] messages =
+        [
+            new JsonRpcRequest(default, "m", null),
+            new JsonRpcResponse(default, result.RootElement),
+            new JsonRpcErrorResponse(default(JsonRpcId), new JsonRpcError(-32600, "bad", null)),
+        ];
+
+        foreach (JsonRpcMessage message in messages)
+        {
+            await Assert.ThrowsAsync<ArgumentException>(
+                async () => await writer.WriteAsync(message, TestContext.Current.CancellationToken));
+        }
+
+        Assert.Equal(0, stream.Length);
+    }
+
     private static void AssertSameMessage(JsonRpcMessage expected, JsonRpcMessage? actual)
     {
         switch (expected)

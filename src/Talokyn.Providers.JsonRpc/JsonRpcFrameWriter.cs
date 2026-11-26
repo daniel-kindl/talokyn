@@ -22,7 +22,8 @@ public sealed class JsonRpcFrameWriter
     }
 
     /// <summary>Writes one message and flushes the stream.</summary>
-    /// <exception cref="JsonRpcProtocolException">The frame is longer than the limit. Nothing was written.</exception>
+    /// <exception cref="JsonRpcProtocolException">The frame is longer or deeper than the limit. Nothing was written.</exception>
+    /// <exception cref="ArgumentException">The message has an empty ID. Nothing was written.</exception>
     public async ValueTask WriteAsync(JsonRpcMessage message, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -39,6 +40,9 @@ public sealed class JsonRpcFrameWriter
                 JsonRpcFrameError.FrameTooLarge,
                 $"A frame is longer than the limit of {_limits.MaxFrameBytes} bytes.");
         }
+
+        // The same check as the reader, so the writer never sends a frame that the peer rejects.
+        JsonRpcMessageParser.CheckSyntaxAndDepth(buffer.WrittenSpan, _limits.MaxDepth);
 
         buffer.Write("\n"u8);
         await _stream.WriteAsync(buffer.WrittenMemory, cancellationToken);
@@ -90,9 +94,14 @@ public sealed class JsonRpcFrameWriter
         {
             json.WriteNumber("id"u8, number);
         }
+        else if (value.Text is string text)
+        {
+            json.WriteString("id"u8, text);
+        }
         else
         {
-            json.WriteString("id"u8, value.Text);
+            // default(JsonRpcId) has neither value. The reader rejects it, so do not send it.
+            throw new ArgumentException("The message has an empty ID.", "message");
         }
     }
 
