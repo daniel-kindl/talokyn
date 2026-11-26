@@ -71,6 +71,9 @@ jobs:
       - name: Validate writing
         if: ${{ !cancelled() && steps.node.outcome == 'success' }}
         run: node scripts/check-writing.mjs
+      - name: Validate brand assets and tokens
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
+        run: node scripts/check-brand.mjs
       - name: Validate maps
         if: ${{ !cancelled() && steps.node.outcome == 'success' }}
         run: node scripts/check-maps.mjs
