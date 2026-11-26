@@ -45,8 +45,6 @@ jobs:
     name: docs
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,28 +52,61 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Setup Node
+        id: node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
-      # DKSTACK validation scripts: released v1.6.0 with offline consumer/PR helper from v1.7.0.
+      # The scripts in scripts/ are copied unchanged from the dkstack tag v1.7.0.
+      # dkstack-hashes.json from v1.7.0 has no v1.7.0 entry, so the consumer
+      # check reads dkstack-hashes.v1.7.0.json. See the exception in AGENTS.md.
       - name: Validate DKSTACK consumer
-        run: node scripts/check-consumer.mjs --tag v1.6.0
-      - name: Validate relative links
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
+        run: node scripts/check-consumer.mjs --tag v1.7.0 --hashes scripts/dkstack-hashes.v1.7.0.json
+      - name: Validate links
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
         run: node scripts/check-links.mjs
       - name: Validate ASCII dashes
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
         run: node scripts/check-dashes.mjs
       - name: Validate writing
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
         run: node scripts/check-writing.mjs
       - name: Validate maps
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
         run: node scripts/check-maps.mjs
       - name: Validate context
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
         run: node scripts/check-context.mjs
       - name: Validate ADRs
-        run: node scripts/check-adrs.mjs --base "$BASE_SHA"
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # The first push to a branch has no commit before it.
+          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            BASE_SHA="$GITHUB_SHA~1"
+          fi
+          node scripts/check-adrs.mjs --base "$BASE_SHA"
       - name: Validate PR title
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && steps.node.outcome == 'success' && github.event_name == 'pull_request' }}
         run: node scripts/check-title.mjs --event
       - name: Validate PR body
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && steps.node.outcome == 'success' && github.event_name == 'pull_request' }}
         run: node scripts/check-pr-body.mjs --event
-
+      - name: Validate commit titles of the push
+        if: ${{ !cancelled() && steps.node.outcome == 'success' && github.event_name == 'push' }}
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            BEFORE="$GITHUB_SHA~1"
+          fi
+          # A git log error must fail the step, so save the output before the loop.
+          commits=$(mktemp)
+          trap 'rm -f "$commits"' EXIT
+          git log --format='%h %s' "$BEFORE..$GITHUB_SHA" > "$commits" || exit 1
+          status=0
+          while IFS= read -r commit; do
+            node scripts/check-title.mjs -- "${commit#* }" || status=1
+          done < "$commits"
+          exit "$status"
