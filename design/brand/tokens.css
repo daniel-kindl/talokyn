@@ -1,0 +1,135 @@
+/* Generated from design/brand/tokens.json. Do not edit manually. */
+:root {
+  --tk-color-neutral-50: #E9EDEC;
+  --tk-color-neutral-150: #D7DFDF;
+  --tk-color-neutral-300: #B7C1C1;
+  --tk-color-neutral-450: #8C9E9F;
+  --tk-color-neutral-600: #5E7177;
+  --tk-color-neutral-700: #445960;
+  --tk-color-neutral-750: #33434A;
+  --tk-color-neutral-800: #27363D;
+  --tk-color-neutral-850: #1C2A31;
+  --tk-color-neutral-900: #162128;
+  --tk-color-neutral-950: #0D1418;
+  --tk-color-teal-300: #B0D0C8;
+  --tk-color-teal-400: #9CC1B8;
+  --tk-color-teal-500: #80ACA1;
+  --tk-color-teal-700: #426F66;
+  --tk-color-teal-800: #315D55;
+  --tk-color-brass-400: #D0BEA0;
+  --tk-color-brass-500: #B8A689;
+  --tk-color-brass-700: #806D54;
+  --tk-color-state-success: #A3C7B0;
+  --tk-color-state-warning: #D6BC92;
+  --tk-color-state-danger: #DDA6A5;
+  --tk-color-state-info: #B0C4D5;
+  --tk-color-light-canvas: #F5F6F3;
+  --tk-color-light-surface: #FFFFFF;
+  --tk-color-light-border: #CED6D4;
+  --tk-font-family-sans: Inter, system-ui, -apple-system, Segoe UI, sans-serif;
+  --tk-font-family-mono: IBM Plex Mono, SFMono-Regular, Consolas, monospace;
+  --tk-font-weight-regular: 400;
+  --tk-font-weight-medium: 500;
+  --tk-font-weight-semibold: 600;
+  --tk-font-weight-bold: 700;
+  --tk-font-size-xs: 0.75rem;
+  --tk-font-size-sm: 0.875rem;
+  --tk-font-size-base: 1rem;
+  --tk-font-size-md: 1.125rem;
+  --tk-font-size-lg: 1.25rem;
+  --tk-font-size-xl: 1.5rem;
+  --tk-font-size-2xl: 2rem;
+  --tk-font-size-3xl: 2.5rem;
+  --tk-font-size-4xl: 3rem;
+  --tk-font-line-height-tight: 1.2;
+  --tk-font-line-height-normal: 1.5;
+  --tk-font-line-height-relaxed: 1.65;
+  --tk-font-tracking-body: 0em;
+  --tk-font-tracking-caps: 0.11em;
+  --tk-font-tracking-wordmark: 0.085em;
+  --tk-space-0: 0px;
+  --tk-space-1: 4px;
+  --tk-space-2: 8px;
+  --tk-space-3: 12px;
+  --tk-space-4: 16px;
+  --tk-space-5: 20px;
+  --tk-space-6: 24px;
+  --tk-space-8: 32px;
+  --tk-space-10: 40px;
+  --tk-space-12: 48px;
+  --tk-space-16: 64px;
+  --tk-space-20: 80px;
+  --tk-radius-xs: 3px;
+  --tk-radius-sm: 6px;
+  --tk-radius-md: 10px;
+  --tk-radius-lg: 14px;
+  --tk-radius-xl: 20px;
+  --tk-radius-full: 999px;
+  --tk-stroke-subtle: 1px;
+  --tk-stroke-strong: 2px;
+  --tk-stroke-focus: 3px;
+  --tk-duration-fast: 120ms;
+  --tk-duration-normal: 200ms;
+  --tk-duration-slow: 280ms;
+  --tk-duration-none: 0ms;
+  --tk-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --tk-easing-exit: cubic-bezier(0.4, 0, 1, 1);
+  --tk-shadow-low: 0 2px 10px rgb(0 0 0 / 18%);
+  --tk-shadow-high: 0 12px 32px rgb(0 0 0 / 26%);
+}
+
+:root, :root[data-tk-theme="dark"] {
+  --tk-bg-canvas: var(--tk-color-neutral-950);
+  --tk-bg-surface: var(--tk-color-neutral-900);
+  --tk-bg-raised: var(--tk-color-neutral-850);
+  --tk-bg-hover: var(--tk-color-neutral-800);
+  --tk-fg-primary: var(--tk-color-neutral-50);
+  --tk-fg-secondary: var(--tk-color-neutral-300);
+  --tk-fg-muted: var(--tk-color-neutral-450);
+  --tk-fg-inverse: var(--tk-color-neutral-950);
+  --tk-border-default: var(--tk-color-neutral-750);
+  --tk-border-strong: var(--tk-color-neutral-600);
+  --tk-action-primary-bg: var(--tk-color-teal-400);
+  --tk-action-primary-fg: var(--tk-color-neutral-950);
+  --tk-action-primary-hover: var(--tk-color-teal-300);
+  --tk-action-secondary-bg: var(--tk-color-neutral-800);
+  --tk-action-secondary-fg: var(--tk-color-neutral-50);
+  --tk-focus-ring: var(--tk-color-teal-300);
+  --tk-status-success: var(--tk-color-state-success);
+  --tk-status-warning: var(--tk-color-state-warning);
+  --tk-status-danger: var(--tk-color-state-danger);
+  --tk-status-info: var(--tk-color-state-info);
+  --tk-detail-brass: var(--tk-color-brass-500);
+}
+
+:root[data-tk-theme="light"] {
+  --tk-bg-canvas: var(--tk-color-light-canvas);
+  --tk-bg-surface: var(--tk-color-light-surface);
+  --tk-bg-raised: var(--tk-color-neutral-50);
+  --tk-bg-hover: var(--tk-color-light-border);
+  --tk-fg-primary: var(--tk-color-neutral-950);
+  --tk-fg-secondary: var(--tk-color-neutral-700);
+  --tk-fg-muted: var(--tk-color-neutral-700);
+  --tk-fg-inverse: var(--tk-color-neutral-50);
+  --tk-border-default: var(--tk-color-light-border);
+  --tk-border-strong: var(--tk-color-neutral-600);
+  --tk-action-primary-bg: var(--tk-color-teal-800);
+  --tk-action-primary-fg: var(--tk-color-neutral-50);
+  --tk-action-primary-hover: var(--tk-color-teal-700);
+  --tk-action-secondary-bg: var(--tk-color-light-border);
+  --tk-action-secondary-fg: var(--tk-color-neutral-950);
+  --tk-focus-ring: var(--tk-color-teal-800);
+  --tk-status-success: var(--tk-color-teal-800);
+  --tk-status-warning: var(--tk-color-brass-700);
+  --tk-status-danger: #984542;
+  --tk-status-info: #315E7E;
+  --tk-detail-brass: var(--tk-color-brass-700);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tk-duration-fast: 0ms;
+    --tk-duration-normal: 0ms;
+    --tk-duration-slow: 0ms;
+  }
+}
