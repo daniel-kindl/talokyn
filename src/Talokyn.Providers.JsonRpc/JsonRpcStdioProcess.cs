@@ -178,7 +178,13 @@ public sealed partial class JsonRpcStdioProcess : IAsyncDisposable
             Terminate("Disposed");
             await Exited;
             await _runCancellation.CancelAsync();
-            await ConnectionCompleted;
+
+            // A cancelled read of a pipe does not end on each system. Do not wait for it for ever:
+            // disposing the process below closes the pipe.
+            if (await WaitForAsync(ConnectionCompleted))
+            {
+                await ConnectionCompleted;
+            }
         }
         catch (Exception)
         {
