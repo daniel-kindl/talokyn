@@ -1,0 +1,14 @@
+{
+  "v1.7.0": {
+    "check-adrs.mjs": "947f676701f9d0b4527f028c789ba82c7772423e6cd9a306ebd9999f07e476e7",
+    "check-context.mjs": "2d04b0a7a7c5df59da3f0382162270d923394181e4d5ef486215200fa548031d",
+    "check-dashes.mjs": "0f2d6e4aec675769141d6c33c5e55dcf42036ec4ffa63ac2d3ae1ba5b32d0971",
+    "check-links.mjs": "882c3a7675aac0957430f7e87f4f819248282ac60260a2dd960cf0a1bf1d68a3",
+    "check-maps.mjs": "87836446ecc84d4e59d4c08d5ef2dfc802b9c2019bbdd1a53c48b6afcbb60936",
+    "check-pr-body.mjs": "5b2bea8777ac317ac3de40ced2c238f34ab418a88dcb213943df9cadc5c1fb86",
+    "check-title.mjs": "e73a0824fc6e140eef4fd455f9d426f7ebd091253bf6648d49a36f626ffcaa66",
+    "check-writing.mjs": "d572a485e14c6aa88fc5e841a0f1d32421ba24d51e4046789a964cdd8034a4ff",
+    "markdown-files.mjs": "6e517e9ebcfa7869a11acd86c978e11fedf2bd2f27a9e44dd1df4c1a9e834ae1",
+    "pr-event.mjs": "08854304ac9398b6bb10e106a90f569f897c768d5f193b5601fc412f42553d3c"
+  }
+}
