@@ -100,7 +100,7 @@ public sealed partial class JsonRpcConnection
     /// <returns>The result of the reply.</returns>
     /// <exception cref="JsonRpcRemoteException">The peer answered with an error object.</exception>
     /// <exception cref="JsonRpcRequestTimeoutException">No reply came within the request timeout.</exception>
-    /// <exception cref="JsonRpcConnectionClosedException">The connection ended before the reply.</exception>
+    /// <exception cref="JsonRpcConnectionClosedException">The connection ended before the reply, or the peer no longer reads.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled. The request is no longer pending.</exception>
     public async Task<JsonElement> SendRequestAsync(string method, JsonElement? parameters, CancellationToken cancellationToken)
     {
@@ -132,7 +132,7 @@ public sealed partial class JsonRpcConnection
     }
 
     /// <summary>Sends a notification. The peer sends no reply.</summary>
-    /// <exception cref="JsonRpcConnectionClosedException">The connection ended.</exception>
+    /// <exception cref="JsonRpcConnectionClosedException">The connection ended, or the peer no longer reads.</exception>
     public async ValueTask SendNotificationAsync(string method, JsonElement? parameters, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(method);
@@ -272,6 +272,11 @@ public sealed partial class JsonRpcConnection
         try
         {
             await _writer.WriteAsync(message, cancellationToken);
+        }
+        catch (IOException exception)
+        {
+            // The peer closed its input, for example because the child exited.
+            throw new JsonRpcConnectionClosedException("The peer no longer reads from the connection.", exception);
         }
         finally
         {

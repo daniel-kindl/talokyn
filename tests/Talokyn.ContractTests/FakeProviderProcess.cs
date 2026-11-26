@@ -5,10 +5,13 @@ namespace Talokyn.ContractTests;
 /// <summary>Starts the fake provider executable that the build copies next to the tests.</summary>
 internal static class FakeProviderProcess
 {
+    public static string ExecutablePath { get; } = Path.Combine(
+        AppContext.BaseDirectory,
+        OperatingSystem.IsWindows() ? "Talokyn.FakeProvider.exe" : "Talokyn.FakeProvider");
+
     public static Process Start(string mode)
     {
-        string name = OperatingSystem.IsWindows() ? "Talokyn.FakeProvider.exe" : "Talokyn.FakeProvider";
-        ProcessStartInfo startInfo = new(Path.Combine(AppContext.BaseDirectory, name))
+        ProcessStartInfo startInfo = new(ExecutablePath)
         {
             RedirectStandardInput = true,
             RedirectStandardOutput = true,

@@ -277,6 +277,23 @@ public sealed class JsonRpcConnectionTests : IDisposable
     }
 
     [Fact]
+    public async Task ReportsAWriteToAClosedPeerAsAClosedConnection()
+    {
+        // A write to a child that already exited fails with an IOException. The caller gets the typed error.
+        JsonRpcConnection connection = Connect();
+        _ = connection.RunAsync(_cancellationToken);
+        _peer.CloseReceiving();
+
+        JsonRpcConnectionClosedException request = await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(
+            () => connection.SendRequestAsync("turn/start", null, _cancellationToken).WaitAsync(_cancellationToken));
+        JsonRpcConnectionClosedException notification = await Assert.ThrowsAsync<JsonRpcConnectionClosedException>(
+            () => connection.SendNotificationAsync("session/cancel", null, _cancellationToken).AsTask().WaitAsync(_cancellationToken));
+
+        Assert.IsType<IOException>(request.InnerException);
+        Assert.IsType<IOException>(notification.InnerException);
+    }
+
+    [Fact]
     public async Task RefusesASecondRun()
     {
         JsonRpcConnection connection = Connect();
