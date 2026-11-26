@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="188" viewBox="0 0 820 188" role="img" aria-label="Talokyn horizontal logotype">
+<title>Talokyn horizontal logotype</title>
+<g transform="translate(14 24) scale(1.05)">
+<path fill="#E9EDEC" d="M64 12 112 36V54L64 31 16 54V36Z"/>
+<path fill="#E9EDEC" d="M18 65 51 48V72L39 80V109L18 96Z"/>
+<path fill="#E9EDEC" d="M110 65 77 48V72L89 80V109L110 96Z"/>
+<path fill="#E9EDEC" d="M56 81 64 76 72 81V119L64 124 56 119Z"/>
+<path fill="#B8A689" d="M64 51 73 56 64 61 55 56Z"/></g>
+<rect x="188" y="34" width="1" height="119" fill="#E9EDEC" opacity=".24"/>
+<text x="229" y="104" fill="#E9EDEC" font-family="Inter, Segoe UI, Helvetica Neue, sans-serif" font-size="75" font-weight="600" letter-spacing="7">TALOKYN</text>
+<text x="232" y="142" fill="#E9EDEC" opacity=".74" font-family="Inter, Segoe UI, sans-serif" font-size="15" font-weight="500" letter-spacing="3.8">AGENT ORCHESTRATION</text>
+</svg>

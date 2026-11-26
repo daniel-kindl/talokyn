@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="280" viewBox="0 0 1440 280" role="img" aria-label="Talokyn documentation header dark">
+<title>Talokyn documentation header dark</title>
+<rect width="1440" height="280" fill="#162128"/>
+<path d="M54 42H1386 M54 237H1386" stroke="#33434A"/>
+<g transform="translate(69 79) scale(.91)">
+<path fill="#E9EDEC" d="M64 12 112 36V54L64 31 16 54V36Z"/>
+<path fill="#E9EDEC" d="M18 65 51 48V72L39 80V109L18 96Z"/>
+<path fill="#E9EDEC" d="M110 65 77 48V72L89 80V109L110 96Z"/>
+<path fill="#E9EDEC" d="M56 81 64 76 72 81V119L64 124 56 119Z"/>
+<path fill="#B8A689" d="M64 51 73 56 64 61 55 56Z"/></g>
+<text x="237" y="148" fill="#E9EDEC" font-family="Inter, Segoe UI, sans-serif" font-size="65" font-weight="600" letter-spacing="6">TALOKYN</text>
+<text x="241" y="187" fill="#B7C1C1" font-family="Inter, Segoe UI, sans-serif" font-size="20">Designing controlled, observable agent handoffs.</text>
+<g transform="translate(200 0)"><g fill="none" stroke="#80ACA1" stroke-width="1.2" opacity=".18">
+<path d="M770 76h140l55 48h155"/><path d="M760 148h110l60 50h211"/><path d="M750 221h195l55-50h164"/>
+<path d="M870 32v300"/><path d="M945 32v300"/><path d="M1020 32v300"/><path d="M1095 32v300"/>
+</g><g fill="#80ACA1" opacity=".40"><circle cx="965" cy="124" r="4"/><circle cx="930" cy="198" r="4"/><circle cx="1000" cy="171" r="4"/></g></g>
+<text x="69" y="259" fill="#80ACA1" font-family="Inter, Segoe UI, sans-serif" font-size="12" letter-spacing="2.5">DOCUMENTATION</text>
+</svg>

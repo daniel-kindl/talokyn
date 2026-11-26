@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="320" viewBox="0 0 960 320" role="img" aria-label="Subtle agent handoff flow lines">
+<title>Subtle agent handoff flow lines</title>
+<rect width="960" height="320" fill="#0D1418"/>
+<g stroke="#80ACA1" stroke-width="2" opacity=".36" fill="none" stroke-linejoin="round">
+<path d="M-40 58H158l92 68h160l90 68h520"/>
+<path d="M-40 144H200l76-48h220l90 92h400"/>
+<path d="M-40 246H128l96-76h240l68-52h450"/>
+<path d="M-40 298H260l64-52h170l72-86h394"/>
+</g>
+<g fill="#B8A689" opacity=".68"><circle cx="250" cy="126" r="4"/><circle cx="586" cy="188" r="4"/></g>
+</svg>

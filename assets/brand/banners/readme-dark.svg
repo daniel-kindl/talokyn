@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="Talokyn dark README identity banner">
+<title>Talokyn dark README identity banner</title>
+<rect width="1280" height="360" fill="#0D1418"/>
+<path d="M38 36H1242 M38 322H1242" stroke="#33434A" stroke-width="1"/>
+<g fill="none" stroke="#80ACA1" stroke-width="1.2" opacity=".18">
+<path d="M770 76h140l55 48h155"/><path d="M760 148h110l60 50h211"/><path d="M750 221h195l55-50h164"/>
+<path d="M870 32v300"/><path d="M945 32v300"/><path d="M1020 32v300"/><path d="M1095 32v300"/>
+</g><g fill="#80ACA1" opacity=".40"><circle cx="965" cy="124" r="4"/><circle cx="930" cy="198" r="4"/><circle cx="1000" cy="171" r="4"/></g>
+<text x="64" y="71" fill="#B7C1C1" font-family="Inter, Segoe UI, sans-serif" font-size="13" font-weight="500" letter-spacing="3.8">DEVELOPER INFRASTRUCTURE</text>
+<g transform="translate(68 116) scale(1.35)">
+<path fill="#E9EDEC" d="M64 12 112 36V54L64 31 16 54V36Z"/>
+<path fill="#E9EDEC" d="M18 65 51 48V72L39 80V109L18 96Z"/>
+<path fill="#E9EDEC" d="M110 65 77 48V72L89 80V109L110 96Z"/>
+<path fill="#E9EDEC" d="M56 81 64 76 72 81V119L64 124 56 119Z"/>
+<path fill="#B8A689" d="M64 51 73 56 64 61 55 56Z"/></g>
+<text x="285" y="211" fill="#E9EDEC" font-family="Inter, Segoe UI, sans-serif" font-size="78" font-weight="600" letter-spacing="7">TALOKYN</text>
+<text x="289" y="260" fill="#B7C1C1" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="400">Orchestration infrastructure for coding agents.</text>
+<text x="65" y="342" fill="#8C9E9F" font-family="Inter, Segoe UI, sans-serif" font-size="12" font-weight="500" letter-spacing="2.5">VENDOR NEUTRAL</text>
+<text x="403" y="342" fill="#8C9E9F" font-family="Inter, Segoe UI, sans-serif" font-size="12" font-weight="500" letter-spacing="2.5">LOCAL FIRST</text>
+<text x="676" y="342" fill="#8C9E9F" font-family="Inter, Segoe UI, sans-serif" font-size="12" font-weight="500" letter-spacing="2.5">POLICY AWARE</text>
+</svg>
