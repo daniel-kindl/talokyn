@@ -40,6 +40,8 @@ jobs:
         run: dotnet format Talokyn.slnx --verify-no-changes --no-restore
       - name: Smoke tests
         run: dotnet run --project tests/Talokyn.SmokeTests/Talokyn.SmokeTests.csproj --no-restore
+      - name: Contract tests
+        run: dotnet run --project tests/Talokyn.ContractTests/Talokyn.ContractTests.csproj --no-restore
 
   docs:
     name: docs
