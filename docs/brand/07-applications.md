@@ -53,7 +53,7 @@ Use the compact glyph at small sizes. Verify each raster export before release.
 
 The core mark is detailed. Prefer an explicitly validated compact glyph for 16px contexts.
 
-At 16px, run visual inspection against dark and light browser chrome. Provide monochrome fallback.
+At 16px, run visual inspection against dark and light browser chrome. Use the [compact favicon](../../assets/brand/logo/favicon.svg) with monochrome fallback.
 
 ## Brand asset inventory
 

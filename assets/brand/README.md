@@ -9,6 +9,7 @@ All committed brand artwork is editable SVG. No font binaries are included.
 - [Monochrome dark](logo/mark-mono-on-dark.svg)
 - [Monochrome light](logo/mark-mono-on-light.svg)
 - [Compact mark](logo/mark-compact.svg)
+- [Favicon](logo/favicon.svg)
 - [Dark square icon](logo/icon-dark.svg)
 - [Light square icon](logo/icon-light.svg)
 

@@ -6,6 +6,7 @@ const OUTPUT = new URL("../design/brand/tokens.css", import.meta.url);
 
 export function buildCss(data){
   const out=["/* Generated from design/brand/tokens.json. Do not edit manually. */"];
+  const kebab=(part)=>part.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
   const flatten=(obj,path,indent="  ")=>{
     const lines=[];
     for(const [name,node] of Object.entries(obj)){
@@ -13,8 +14,8 @@ export function buildCss(data){
       const next=[...path,name];
       if(node && typeof node==="object" && "$value" in node){
         const raw=String(node.$value);
-        const value=/^\{[a-zA-Z0-9.-]+\}$/.test(raw)?`var(--tk-${raw.slice(1,-1).split(".").join("-")})`:raw;
-        lines.push(`${indent}--tk-${next.join("-")}: ${value};`);
+        const value=/^\{[a-zA-Z0-9.-]+\}$/.test(raw)?`var(--tk-${raw.slice(1,-1).split(".").map(kebab).join("-")})`:raw;
+        lines.push(`${indent}--tk-${next.map(kebab).join("-")}: ${value};`);
       }else if(node&&typeof node==="object"){lines.push(...flatten(node,next,indent))}
     }
     return lines;

@@ -27,6 +27,7 @@ The brandmark is not a literal helmet. Do not add facial features or armor detai
 | [Monochrome on dark](../../assets/brand/logo/mark-mono-on-dark.svg) | Single-ink production |
 | [Monochrome on light](../../assets/brand/logo/mark-mono-on-light.svg) | Dark ink on paper |
 | [Compact mark](../../assets/brand/logo/mark-compact.svg) | Small or low-resolution contexts |
+| [Dark favicon](../../assets/brand/logo/favicon.svg) | Small browser tab icon |
 | [Horizontal lockup](../../assets/brand/logo/lockup-horizontal-on-dark.svg) | Desktop headers and documentation |
 | [Stacked lockup](../../assets/brand/logo/lockup-stacked-on-dark.svg) | Spacious square applications |
 | [Dark icon](../../assets/brand/logo/icon-dark.svg) | Avatar and square launcher icon |

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { updateTokens } from "../scripts/generate-brand-tokens.mjs";
@@ -22,6 +22,9 @@ const contrast = (a,b) => {
 let assertions = 0;
 const expect = (value,msg) => {assertions++;if(!value)throw new Error(msg)};
 await updateTokens(true);
+const css=await readFile(new URL("../design/brand/tokens.css", import.meta.url), "utf8");
+expect(css.includes("--tk-action-primary-bg:"), "semantic CSS must use kebab-case token names");
+expect(css.includes("--tk-font-line-height-normal:"), "type token names must be kebab-case");
 const pairs=[
   ["dark.fg.primary","dark.bg.canvas",4.5],
   ["dark.fg.secondary","dark.bg.surface",4.5],
@@ -40,7 +43,7 @@ for(const [a,b,min] of pairs){
   expect(ratio >= min, a+" / "+b+": contrast "+ratio.toFixed(2)+" below "+min);
 }
 for(const category of ["logo","banners","patterns","icons"]){
-  const directory=join(assetsUrl.pathname,category);
+  const directory=join(fileURLToPath(assetsUrl),category);
   const files=(await readdir(directory)).filter((name)=>name.endsWith(".svg"));
   expect(files.length>0,category+" has no SVG assets");
   for(const file of files){

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Talokyn compact favicon">
+<title>Talokyn compact favicon</title>
+<rect width="64" height="64" rx="13" fill="#0D1418"/>
+<g transform="translate(2 0) scale(0.46)" fill="#E9EDEC">
+<path d="M64 12 112 36V54L64 31 16 54V36Z"/>
+<path d="M18 65 51 48V72L39 80V109L18 96Z"/>
+<path d="M110 65 77 48V72L89 80V109L110 96Z"/>
+<path d="M56 81 64 76 72 81V119L64 124 56 119Z"/>
+</g>
+</svg>
