@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/Talokyn.Core/Talokyn.Core.csproj" />
+  <Project Path="src/Talokyn.Cli/Talokyn.Cli.csproj" />
+  <Project Path="src/Talokyn.Daemon/Talokyn.Daemon.csproj" />
+  <Project Path="tests/Talokyn.SmokeTests/Talokyn.SmokeTests.csproj" />
+</Solution>
