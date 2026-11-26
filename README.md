@@ -1,6 +1,7 @@
 # Talokyn
 
 ![Talokyn dark brand banner](assets/brand/banners/readme-dark.svg)
+
 **Cross-platform infrastructure for orchestrating AI coding agents.**
 
 Talokyn is a proposed persistent local control plane that lets a supported coding agent start, supervise, message, steer when available, and recover other agent sessions. Designed for Linux, Windows and macOS.
