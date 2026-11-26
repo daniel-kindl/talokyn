@@ -11,6 +11,7 @@ dotnet restore Talokyn.slnx
 dotnet build Talokyn.slnx --no-restore -warnaserror
 dotnet format Talokyn.slnx --verify-no-changes --no-restore
 dotnet run --project tests/Talokyn.SmokeTests/Talokyn.SmokeTests.csproj --no-restore
+dotnet run --project tests/Talokyn.ContractTests/Talokyn.ContractTests.csproj --no-restore
 node scripts/check-consumer.mjs --tag v1.7.0 --hashes scripts/dkstack-hashes.v1.7.0.json
 node scripts/check-links.mjs
 node scripts/check-dashes.mjs

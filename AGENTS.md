@@ -28,7 +28,7 @@ The owner approved each exception below in an owner-controlled chat session on 2
 - Stage: initial bootstrap. No operational agent orchestrator yet.
 - Stack: C# 15, .NET 11. Cross-platform Linux, Windows and macOS.
 - Current specification: [docs/design/SPEC.md](docs/design/SPEC.md). Architecture [docs/design/ARCHITECTURE.md](docs/design/ARCHITECTURE.md). Verification [docs/design/VERIFICATION.md](docs/design/VERIFICATION.md).
-- Development: `dotnet restore Talokyn.slnx`, `dotnet build Talokyn.slnx --no-restore -warnaserror`, `dotnet format Talokyn.slnx --verify-no-changes --no-restore`, `dotnet run --project tests/Talokyn.SmokeTests/Talokyn.SmokeTests.csproj --no-restore`.
+- Development: `dotnet restore Talokyn.slnx`, `dotnet build Talokyn.slnx --no-restore -warnaserror`, `dotnet format Talokyn.slnx --verify-no-changes --no-restore`, `dotnet run --project tests/Talokyn.SmokeTests/Talokyn.SmokeTests.csproj --no-restore`, `dotnet run --project tests/Talokyn.ContractTests/Talokyn.ContractTests.csproj --no-restore`.
 - Checks: [CONTRIBUTING.md](CONTRIBUTING.md) lists the documentation checks. The scripts in `scripts/` come from the dkstack tag `v1.7.0`. Do not change them. To update them, copy them again from a newer tag.
 - Commits and branches: [version-control](https://raw.githubusercontent.com/daniel-kindl/dkstack/v1/version-control/index.md). Versions: [versioning](https://raw.githubusercontent.com/daniel-kindl/dkstack/v1/versioning/index.md). The version is in `Directory.Build.props`.
 - Evidence: reference-model tests and benchmarks in the audit package are **not** proof of a working .NET implementation.
